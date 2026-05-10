@@ -27,6 +27,7 @@ if ($null -eq $config) {
 }
 
 $pingHistory = [System.Collections.Generic.Queue[int]]::new()
+$jitterHistory = [System.Collections.Generic.Queue[int]]::new()
 $eventLog = New-Object System.Collections.ObjectModel.ObservableCollection[PSCustomObject]
 $sessionStats = [PSCustomObject]@{ 
     TotalPings = 0; FailedPings = 0; MaxLat = 0; MinLat = 9999; LastLat = 0; StartTime = Get-Date; Jitter = 0 
@@ -118,9 +119,21 @@ $sessionStats = [PSCustomObject]@{
                         <StackPanel Grid.Column="1" Margin="45,0,0,0">
                             <Border Background="#121218" CornerRadius="20" Padding="25" BorderBrush="#1F1F24" BorderThickness="1">
                                 <StackPanel>
-                                    <TextBlock Text="STABILITY TREND" FontSize="11" Foreground="#0078D7" FontWeight="Bold" Margin="0,0,0,20"/>
+                                    <Grid Margin="0,0,0,10">
+                                        <TextBlock Text="STABILITY TREND" FontSize="11" Foreground="#0078D7" FontWeight="Bold"/>
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                            <Rectangle Width="8" Height="2" Fill="#0078D7" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                                            <TextBlock Text="PING" Foreground="#666" FontSize="9" Margin="0,0,10,0"/>
+                                            <Rectangle Width="8" Height="2" Fill="#FFB900" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                                            <TextBlock Text="JITTER" Foreground="#666" FontSize="9" Margin="0,0,10,0"/>
+                                            <Line X1="0" X2="8" Y1="0" Y2="0" Stroke="Red" StrokeThickness="1" StrokeDashArray="2,2" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                                            <TextBlock Text="LIMIT" Foreground="#666" FontSize="9"/>
+                                        </StackPanel>
+                                    </Grid>
                                     <Canvas Name="canvas" Height="150" Background="Transparent" ClipToBounds="True">
-                                        <Polyline Name="polyline" Stroke="#0078D7" StrokeThickness="3.5" StrokeLineJoin="Round"/>
+                                        <Line Name="limitLine" Stroke="Red" StrokeThickness="1" StrokeDashArray="4,4" Opacity="0.4" Visibility="Collapsed"/>
+                                        <Polyline Name="polylineJitter" Stroke="#FFB900" StrokeThickness="1.5" StrokeDashArray="2,1" Opacity="0.6"/>
+                                        <Polyline Name="polyline" Stroke="#0078D7" StrokeThickness="3" StrokeLineJoin="Round"/>
                                     </Canvas>
                                 </StackPanel>
                             </Border>
@@ -174,45 +187,113 @@ $sessionStats = [PSCustomObject]@{
                     </StackPanel>
                 </Grid>
 
-                <!-- PAGE 3: EXPANDED INFO -->
+                <!-- PAGE 3: ADVANCED DIAGNOSTICS (EXPANDED) -->
                 <Grid Name="pageInfo" Visibility="Collapsed">
-                    <StackPanel>
-                        <TextBlock Text="Diagnostic Context" FontSize="34" Foreground="White" FontWeight="Bold" Margin="0,0,0,25"/>
-                        <UniformGrid Columns="2">
-                            <Border Background="#121218" Margin="8" Padding="25" CornerRadius="20" BorderBrush="#1F1F24" BorderThickness="1">
-                                <StackPanel><TextBlock Text="LOCAL GATEWAY" Foreground="#0078D7" FontWeight="Bold" FontSize="11" Margin="0,0,0,8"/><TextBlock Name="txtLocalIP" Text="---" Foreground="White" FontSize="22" FontFamily="Consolas"/></StackPanel>
-                            </Border>
-                            <Border Background="#121218" Margin="8" Padding="25" CornerRadius="20" BorderBrush="#1F1F24" BorderThickness="1">
-                                <StackPanel><TextBlock Text="DEFAULT ROUTER" Foreground="#0078D7" FontWeight="Bold" FontSize="11" Margin="0,0,0,8"/><TextBlock Name="txtGateway" Text="---" Foreground="White" FontSize="22" FontFamily="Consolas"/></StackPanel>
-                            </Border>
-                            <Border Background="#121218" Margin="8" Padding="25" CornerRadius="20" BorderBrush="#1F1F24" BorderThickness="1">
-                                <StackPanel><TextBlock Text="EXTERNAL WAN IP" Foreground="#FFB900" FontWeight="Bold" FontSize="11" Margin="0,0,0,8"/><TextBlock Name="txtPublicIP" Text="Detecting..." Foreground="White" FontSize="22" FontFamily="Consolas"/></StackPanel>
-                            </Border>
-                            <Border Background="#121218" Margin="8" Padding="25" CornerRadius="20" BorderBrush="#1F1F24" BorderThickness="1">
-                                <StackPanel><TextBlock Text="PRIMARY DNS" Foreground="#0078D7" FontWeight="Bold" FontSize="11" Margin="0,0,0,8"/><TextBlock Name="txtDNS" Text="---" Foreground="White" FontSize="22" FontFamily="Consolas"/></StackPanel>
-                            </Border>
-                        </UniformGrid>
-                        
-                        <Border Background="#1A1A1F" CornerRadius="15" Padding="20" Margin="8,20,8,0">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" Name="txtAdapterType" Text="&#xE839;" FontFamily="Segoe MDL2 Assets" Foreground="#0078D7" FontSize="24" VerticalAlignment="Center"/>
-                                <StackPanel Grid.Column="1" Margin="20,0">
-                                    <TextBlock Name="txtAdapterName" Text="Network Controller" Foreground="White" FontSize="16" FontWeight="Bold"/>
-                                    <TextBlock Text="HARDWARE INTERFACE" Foreground="#444" FontSize="10" FontWeight="Black"/>
-                                </StackPanel>
-                                <TextBlock Grid.Column="2" Name="txtLinkSpeed" Text="--- Mbps" Foreground="#44E811" FontWeight="Bold" FontSize="18" VerticalAlignment="Center" FontFamily="Consolas"/>
-                            </Grid>
-                        </Border>
-                        
-                        <Button Name="btnRefreshNet" Content="Re-Scan Network Topology" Margin="8,30,0,0" Width="240" Height="45" Background="#0078D7" Foreground="White" FontWeight="Bold">
-                            <Button.Resources><Style TargetType="Border"><Setter Property="CornerRadius" Value="10"/></Style></Button.Resources>
-                        </Button>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Header Area -->
+                    <StackPanel Grid.Row="0" Margin="0,0,0,25">
+                        <TextBlock Text="Diagnostic Context" FontSize="34" Foreground="White" FontWeight="Bold"/>
+                        <TextBlock Text="Hardware telemetry and real-time socket analysis." Foreground="#555" FontSize="14"/>
                     </StackPanel>
+
+                    <Grid Grid.Row="1">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="1.2*"/> <!-- Hardware -->
+                            <ColumnDefinition Width="1.5*"/> <!-- Traffic -->
+                            <ColumnDefinition Width="180"/>  <!-- Sidebar -->
+                        </Grid.ColumnDefinitions>
+
+                        <!-- COLUMN 1: HARDWARE & IP -->
+                        <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" Margin="0,0,15,0">
+                            <StackPanel>
+                                <TextBlock Text="INTERFACE TELEMETRY" Foreground="#0078D7" FontWeight="Bold" FontSize="11" Margin="5,0,0,10"/>
+                                
+                                <Border Background="#121218" Padding="15" CornerRadius="15" BorderBrush="#1F1F24" BorderThickness="1" Margin="0,0,0,10">
+                                    <StackPanel>
+                                        <TextBlock Name="txtAdapterName" Text="Network Controller" Foreground="White" FontWeight="Bold" FontSize="14" TextWrapping="Wrap"/>
+                                        <TextBlock Name="txtMAC" Text="MAC: --:--:--:--:--:--" Foreground="#555" FontSize="11" Margin="0,5,0,0"/>
+                                        <Separator Background="#1F1F24" Margin="0,10"/>
+                                        <UniformGrid Columns="2">
+                                            <StackPanel><TextBlock Text="STATUS" Foreground="#444" FontSize="9"/><TextBlock Name="txtNetStatus" Text="UP" Foreground="#44E811" FontWeight="Bold"/></StackPanel>
+                                            <StackPanel><TextBlock Text="SPEED" Foreground="#444" FontSize="9"/><TextBlock Name="txtLinkSpeed" Text="--- Mbps" Foreground="White"/></StackPanel>
+                                        </UniformGrid>
+                                    </StackPanel>
+                                </Border>
+
+                                <UniformGrid Columns="1">
+                                    <Border Background="#121218" Margin="0,5" Padding="15" CornerRadius="12">
+                                        <StackPanel><TextBlock Text="IPV4 ADDRESS" Foreground="#0078D7" FontSize="10"/><TextBlock Name="txtLocalIP" Text="---" Foreground="White" FontSize="16" FontFamily="Consolas"/></StackPanel>
+                                    </Border>
+                                    <Border Background="#121218" Margin="0,5" Padding="15" CornerRadius="12">
+                                        <StackPanel><TextBlock Text="GATEWAY" Foreground="#0078D7" FontSize="10"/><TextBlock Name="txtGateway" Text="---" Foreground="White" FontSize="16" FontFamily="Consolas"/></StackPanel>
+                                    </Border>
+                                    <Border Background="#121218" Margin="0,5" Padding="15" CornerRadius="12">
+                                        <StackPanel><TextBlock Text="DHCP SERVER" Foreground="#0078D7" FontSize="10"/><TextBlock Name="txtDHCPServer" Text="---" Foreground="White" FontSize="16" FontFamily="Consolas"/></StackPanel>
+                                    </Border>
+                                </UniformGrid>
+                            </StackPanel>
+                        </ScrollViewer>
+
+                        <!-- COLUMN 2: TRAFFIC & ISP -->
+                        <Grid Grid.Column="1" Margin="0,0,15,0">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+
+                            <Border Grid.Row="0" Background="#1A1A24" Padding="20" CornerRadius="15" BorderBrush="#2A2A35" BorderThickness="1" Margin="0,0,0,15">
+                                <Grid>
+                                    <StackPanel>
+                                        <TextBlock Text="WAN IP" Foreground="#FFB900" FontWeight="Bold" FontSize="11" Margin="0,0,0,8"/>
+                                        <TextBlock Name="txtPublicIP" Text="0.0.0.0" Foreground="White" FontSize="22" FontWeight="Bold" FontFamily="Consolas"/>
+                                        <TextBlock Name="txtISPName" Text="ISP: Detecting..." Foreground="#888" FontSize="13"/>
+                                        <TextBlock Name="txtISPCity" Text="Location: ---" Foreground="#666" FontSize="11"/>
+                                    </StackPanel>
+                                    <TextBlock Text="&#xEC05;" FontFamily="Segoe MDL2 Assets" Foreground="#FFB900" FontSize="32" HorizontalAlignment="Right" VerticalAlignment="Center" Opacity="0.3"/>
+                                </Grid>
+                            </Border>
+
+                            <StackPanel Grid.Row="1">
+                                <TextBlock Text="LIVE SOCKET MONITOR" Foreground="#555" FontWeight="Bold" FontSize="11" Margin="5,0,0,10"/>
+                                <Border Background="#0A0A0C" CornerRadius="12" Padding="5" BorderBrush="#1F1F24" BorderThickness="1">
+                                    <ListBox Name="lstActiveConns" Height="280" Background="Transparent" BorderThickness="0">
+                                        <ListBox.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border BorderBrush="#16161D" BorderThickness="0,0,0,1" Padding="8,4">
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions><ColumnDefinition Width="120"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                                        <TextBlock Text="{Binding ProcessName}" Foreground="#0078D7" FontWeight="Bold" FontSize="12"/>
+                                                        <TextBlock Grid.Column="1" Text="{Binding RemoteAddr}" Foreground="#666" FontSize="11" HorizontalAlignment="Right" FontFamily="Consolas"/>
+                                                    </Grid>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ListBox.ItemTemplate>
+                                    </ListBox>
+                                </Border>
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- COLUMN 3: SIDEBAR TOOLS -->
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="QUICK REPAIR" Foreground="#555" FontWeight="Bold" FontSize="11" Margin="5,0,0,10"/>
+                            <Button Name="btnFlushDNS" Content="Flush DNS" Height="40" Background="#1A1A1F" Foreground="White" Margin="0,0,0,8"/>
+                            <Button Name="btnResetStack" Content="Reset IP Stack" Height="40" Background="#1A1A1F" Foreground="White" Margin="0,0,0,8"/>
+                            <Button Name="btnRefreshNet" Content="Full Re-Scan" Height="50" Background="#0078D7" Foreground="White" FontWeight="Bold" Margin="0,10,0,20">
+                                <Button.Resources><Style TargetType="Border"><Setter Property="CornerRadius" Value="10"/></Style></Button.Resources>
+                            </Button>
+
+                            <Border Background="#121218" CornerRadius="12" Padding="15" BorderBrush="#1F1F24" BorderThickness="1">
+                                <StackPanel>
+                                    <TextBlock Text="DNS SERVERS" Foreground="#555" FontSize="10" FontWeight="Bold" Margin="0,0,0,5"/>
+                                    <TextBlock Name="txtDNS" Text="---" Foreground="#AAA" FontSize="11" TextWrapping="Wrap" FontFamily="Consolas"/>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </Grid>
                 </Grid>
 
                 <!-- PAGE 4: SETTINGS -->
@@ -280,7 +361,8 @@ $ui = @{}
 "sldThresh", "lblThreshVal", "btnSave", "btnExit", "btnMin", "lblAlert", "txtUptime", "btnRefreshNet",
 "txtJitter", "txtLoss", "txtQuality", "lblStatus", "txtSendRate", "txtRecvRate", "txtAdapterType", 
 "txtAdapterName", "txtLinkSpeed", "editInterval", "chkAutoStart", "chkMinimizeToTray", "editLogPath", 
-"btnBrowseLog" | ForEach-Object { $ui[$_] = $window.FindName($_) }
+"btnBrowseLog", "txtMAC", "txtNetStatus", "txtDHCPServer", "txtISPName", "txtISPCity", "lstActiveConns", 
+"btnFlushDNS", "btnResetStack", "polylineJitter", "limitLine" | ForEach-Object { $ui[$_] = $window.FindName($_) }
 
 function Add-LogEntry {
     param($Status, $Latency, $Color = "#888")
@@ -307,58 +389,122 @@ function Add-LogEntry {
 function Get-NetworkSummary {
     try {
         $net = Get-NetIPConfiguration | Where-Object { $null -ne $_.IPv4Address } | Select-Object -First 1
-        if ($null -ne $net) {
-            $ui.txtLocalIP.Text = $net.IPv4Address.IPAddress
-            $ui.txtGateway.Text = $net.IPv4DefaultGateway.NextHop
-            $ui.txtDNS.Text = ($net.DNSServer.ServerAddresses | Out-String).Trim()
-        }
+        $adapter = $net.NetAdapter
         
-        $adapter = Get-NetAdapter | Where-Object { $_.Status -eq "Up" } | Select-Object -First 1
-        if ($null -ne $adapter) {
-            $ui.txtAdapterName.Text = $adapter.InterfaceDescription
-            $ui.txtLinkSpeed.Text = "$($adapter.LinkSpeed)"
-            $ui.txtAdapterType.Text = if ($adapter.MediaType -like "*802.11*") { [char]0xE701 } else { [char]0xE839 }
+        $wmi = Get-CimInstance Win32_NetworkAdapterConfiguration | Where-Object { $_.InterfaceIndex -eq $net.InterfaceIndex }
+
+        $ui.txtLocalIP.Text = $net.IPv4Address.IPAddress
+        $ui.txtGateway.Text = $net.IPv4DefaultGateway.NextHop
+        $ui.txtDNS.Text = ($net.DNSServer.ServerAddresses -join "`n")
+        $ui.txtMAC.Text = "MAC: $($adapter.LinkLayerAddress)"
+        $ui.txtAdapterName.Text = $adapter.InterfaceDescription
+        $ui.txtNetStatus.Text = $adapter.Status.ToString().ToUpper()
+        $ui.txtLinkSpeed.Text = $adapter.LinkSpeed
+        $ui.txtDHCPServer.Text = if ($wmi.DHCPEnabled) { $wmi.DHCPServer } else { "Static IP" }
+
+        $ui.txtPublicIP.Text = "Resolving..."
+        $ui.txtISPName.Text = "ISP: Querying..."
+
+        $ispTask = {
+            try {
+                $data = Invoke-RestMethod -Uri "http://ip-api.com/json/?fields=status,message,country,regionName,city,isp,query" -TimeoutSec 2
+                return $data
+            }
+            catch {
+                return "ERROR"
+            }
         }
 
-        $ui.txtPublicIP.Text = "Querying..."
-        $ps = [powershell]::Create().AddScript({
-                try { (Invoke-RestMethod -Uri "https://api.ipify.org" -TimeoutSec 2).Trim() } catch { "Offline" }
-            })
-        $async = $ps.BeginInvoke()
+        $result = Start-Job -ScriptBlock $ispTask | Wait-Job -Timeout 3 | Receive-Job
+
+        if ($null -ne $result -and $result -ne "ERROR") {
+            $ui.txtPublicIP.Text = $result.query
+            $ui.txtISPName.Text = "ISP: $($result.isp)"
+            $ui.txtISPCity.Text = "Location: $($result.city), $($result.regionName)"
+        }
+        else {
+            $ui.txtPublicIP.Text = "Offline/Timed Out"
+            $ui.txtISPName.Text = "ISP: Connection Failed"
+        }
         
-        $checkTimer = New-Object System.Windows.Threading.DispatcherTimer
-        $checkTimer.Interval = [TimeSpan]::FromMilliseconds(500)
-        $checkTimer.Add_Tick({
+        $t = New-Object System.Windows.Threading.DispatcherTimer
+        $t.Interval = [TimeSpan]::FromSeconds(1)
+        $t.Add_Tick({
                 if ($async.IsCompleted) {
                     $res = $ps.EndInvoke($async)
-                    $ui.txtPublicIP.Text = $res
-                    $ps.Dispose()
-                    $this.Stop()
+                    if ($res) {
+                        $ui.txtPublicIP.Text = $res.query
+                        $ui.txtISPName.Text = "ISP: $($res.isp)"
+                        $ui.txtISPCity.Text = "Location: $($res.city), $($res.regionName)"
+                    }
+                    $this.Stop(); $ps.Dispose()
                 }
             })
-        $checkTimer.Start()
+        $t.Start()
     }
-    catch { $ui.txtLocalIP.Text = "Discovery Error" }
+    catch { $ui.txtLocalIP.Text = "Scan Error" }
 }
 
 function Start-StabilityGraph {
-    $arr = $pingHistory.ToArray()
-    if ($arr.Count -lt 2) { return }
-    
-    $pts = New-Object System.Windows.Media.PointCollection
-    $maxVal = ($arr | Measure-Object -Maximum).Maximum
-    if ($maxVal -lt $ui.sldThresh.Value) { $maxVal = $ui.sldThresh.Value }
+    $latArr = $pingHistory.ToArray()
+    $jitArr = $jitterHistory.ToArray()
+    if ($latArr.Count -lt 2) { return }
     
     $w = $ui.canvas.ActualWidth
     $h = $ui.canvas.ActualHeight
-    $step = if ($arr.Count -gt 1) { $w / ($arr.Count - 1) } else { 0 }
+    $thresh = $ui.sldThresh.Value
+
+    $maxVal = ($latArr + $jitArr + @($thresh) | Measure-Object -Maximum).Maximum
+    $scaleY = $h / ($maxVal * 1.1)
     
-    for ($i = 0; $i -lt $arr.Count; $i++) {
+    $latPoints = New-Object System.Windows.Media.PointCollection
+    $jitPoints = New-Object System.Windows.Media.PointCollection
+    $step = $w / ($latArr.Count - 1)
+    
+    for ($i = 0; $i -lt $latArr.Count; $i++) {
         $x = $i * $step
-        $y = $h - (($arr[$i] / ($maxVal * 1.2)) * $h)
-        $pts.Add((New-Object System.Windows.Point($x, $y)))
+        
+        $val = $latArr[$i]
+        $displayVal = if ($val -eq -1) { $maxVal } else { $val }
+        $yLat = $h - ($displayVal * $scaleY)
+        $latPoints.Add((New-Object System.Windows.Point($x, $yLat)))
+        
+        $yJit = $h - ($jitArr[$i] * $scaleY)
+        $jitPoints.Add((New-Object System.Windows.Point($x, $yJit)))
     }
-    $ui.polyline.Points = $pts
+    
+    $window.Dispatcher.Invoke({
+            $ui.polyline.Points = $latPoints
+            $ui.polylineJitter.Points = $jitPoints
+
+            $ui.limitLine.Visibility = "Visible"
+            $ui.limitLine.X1 = 0
+            $ui.limitLine.X2 = $w
+            $ui.limitLine.Y1 = $ui.limitLine.Y2 = ($h - ($thresh * $scaleY))
+        })
+}
+
+function Get-ActiveConnections {
+    try {
+        $conns = Get-NetTCPConnection -State Established -ErrorAction SilentlyContinue | 
+        Select-Object -First 15 | 
+        ForEach-Object {
+            
+            $proc = Get-Process -Id $_.OwningProcess -ErrorAction SilentlyContinue
+            
+            [PSCustomObject]@{
+                ProcessName = if ($proc) { $proc.Name.ToUpper() } else { "SYSTEM/PID:$($_.OwningProcess)" }
+                RemoteAddr  = "$($_.RemoteAddress):$($_.RemotePort)"
+            }
+        }
+        $window.Dispatcher.Invoke({
+                $ui.lstActiveConns.ItemsSource = $null
+                $ui.lstActiveConns.ItemsSource = $conns
+            })
+    }
+    catch {
+        Write-Host "Socket Monitor Error: $_"
+    }
 }
 
 $pingProvider = New-Object System.Net.NetworkInformation.Ping
@@ -384,6 +530,10 @@ $timer.Add_Tick({
             $reply = $pingProvider.Send($ui.editHost.Text, 900)
             if ($reply.Status -eq "Success") {
                 $ms = [int]$reply.RoundtripTime
+                $currentJitter = if ($sessionStats.LastLat -gt 0) { [Math]::Abs($ms - $sessionStats.LastLat) } else { 0 }
+
+                $pingHistory.Enqueue($ms)
+                $jitterHistory.Enqueue($currentJitter)
                 $ui.lblBigPing.Text = $ms
             
                 if ($sessionStats.LastLat -gt 0) {
@@ -422,6 +572,7 @@ $timer.Add_Tick({
                 $ui.txtMax.Text = "$($sessionStats.MaxLat)ms"
                 $ui.txtLoss.Text = $sessionStats.FailedPings
                 $ui.txtAvg.Text = "$([Math]::Round(($pingHistory.ToArray() | Measure-Object -Average).Average))ms"
+                if ($pingHistory.Count -gt 30) { [void]$pingHistory.Dequeue(); [void]$jitterHistory.Dequeue() }
                 Start-StabilityGraph
             }
             else { throw "Timeout" }
@@ -430,6 +581,8 @@ $timer.Add_Tick({
             $sessionStats.FailedPings++; Add-LogEntry "LOSS" -1 "#E81123"
             $ui.lblBigPing.Text = "!!"; $ui.ringProgress.Stroke = [System.Windows.Media.Brushes]::Red
             $ui.lblStatus.Text = "PACKET LOSS"; $ui.txtQuality.Text = "CRITICAL"
+            $pingHistory.Enqueue(-1) 
+            $jitterHistory.Enqueue(0)
         }
     
         $uptime = 100 - ($sessionStats.FailedPings / $sessionStats.TotalPings * 100)
@@ -463,7 +616,7 @@ $ui.btnAction.Add_Click({
 
 $ui.navDash.Add_Click({ $ui.pageDash.Visibility = "Visible"; $ui.pageLogs.Visibility = $ui.pageInfo.Visibility = $ui.pageSet.Visibility = "Collapsed" })
 $ui.navLogs.Add_Click({ $ui.pageLogs.Visibility = "Visible"; $ui.pageDash.Visibility = $ui.pageInfo.Visibility = $ui.pageSet.Visibility = "Collapsed" })
-$ui.navInfo.Add_Click({ Get-NetworkSummary; $ui.pageInfo.Visibility = "Visible"; $ui.pageDash.Visibility = $ui.pageLogs.Visibility = $ui.pageSet.Visibility = "Collapsed" })
+$ui.navInfo.Add_Click({ Get-NetworkSummary; Get-ActiveConnections; $ui.pageInfo.Visibility = "Visible"; $ui.pageDash.Visibility = $ui.pageLogs.Visibility = $ui.pageSet.Visibility = "Collapsed" })
 $ui.navSet.Add_Click({ $ui.pageSet.Visibility = "Visible"; $ui.pageDash.Visibility = $ui.pageLogs.Visibility = $ui.pageInfo.Visibility = "Collapsed" })
 
 $ui.btnSave.Add_Click({
@@ -494,7 +647,11 @@ else {
     $config.Interval = 1000
 }
 
-$ui.btnRefreshNet.Add_Click({ Get-NetworkSummary })
+$ui.btnRefreshNet.Add_Click({ 
+        Get-NetworkSummary
+        Get-ActiveConnections 
+    })
+
 $ui.btnExport.Add_Click({ 
         if ($eventLog.Count -eq 0) {
             [System.Windows.MessageBox]::Show("No data to export!")
@@ -511,6 +668,19 @@ $ui.sldThresh.Add_ValueChanged({ $ui.lblThreshVal.Text = "$([Math]::Round($ui.sl
 $ui.btnExit.Add_Click({ $window.Close() })
 $ui.btnMin.Add_Click({ $window.WindowState = "Minimized" })
 $window.Add_MouseLeftButtonDown({ $window.DragMove() })
+
+$ui.btnFlushDNS.Add_Click({ 
+        Clear-DnsClientCache
+        [System.Windows.MessageBox]::Show("DNS Cache cleared successfully.") 
+    })
+
+$ui.btnResetStack.Add_Click({
+        $confirm = [System.Windows.MessageBox]::Show("Reset IP stack? This will drop connection.", "Confirm", "YesNo")
+        if ($confirm -eq "Yes") {
+            netsh int ip reset
+            [System.Windows.MessageBox]::Show("Reset complete. Restart highly recommended.")
+        }
+    })
 
 Get-NetworkSummary
 $window.ShowDialog()
