@@ -5,75 +5,227 @@ if (-not ([System.Management.Automation.PSTypeName]'IconHelper').Type) {
     using System;
     using System.Runtime.InteropServices;
     public class IconHelper {
-        [DllImport("user32.dll", CharSet = CharSet.Auto)]
+        [DllImport("user32.dll")]
         public static extern bool DestroyIcon(IntPtr handle);
     }
 "@
 }
 
+$configPath = "$env:TEMP\NetPulse_Ultra_V2.json"
+$config = if (Test-Path $configPath) { 
+    try { Get-Content $configPath -Raw | ConvertFrom-Json } catch { $null }
+} 
+
+if ($null -eq $config) {
+    $config = [PSCustomObject]@{ 
+        Host      = "8.8.8.8"
+        Threshold = 100 
+        LogPath   = "$env:USERPROFILE\Desktop\NetPulse_Log.csv" 
+    }
+}
+
+$pingHistory = [System.Collections.Generic.Queue[int]]::new()
+$eventLog = New-Object System.Collections.ObjectModel.ObservableCollection[PSCustomObject]
+$sessionStats = [PSCustomObject]@{ 
+    TotalPings = 0; FailedPings = 0; MaxLat = 0; MinLat = 9999; LastLat = 0; StartTime = Get-Date; Jitter = 0 
+}
+
 [xml]$xaml = @"
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="NetPulse Pro" Height="450" Width="700" 
-        WindowStartupLocation="CenterScreen" Background="Transparent" AllowsTransparency="True" WindowStyle="None">
+        Title="NetPulse Ultra" Height="750" Width="1150" 
+        WindowStartupLocation="CenterScreen" Background="Transparent" AllowsTransparency="True" WindowStyle="None"
+        FontFamily="Segoe UI Variable Text">
     
-    <Border Name="MainBorder" CornerRadius="15" Background="#1E1E1E" BorderBrush="#333" BorderThickness="1">
+    <Border Name="MainBorder" CornerRadius="28" Background="#0C0C0F" BorderBrush="#25252A" BorderThickness="1.5">
         <Grid>
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="70"/> <!-- Sidebar -->
-                <ColumnDefinition Width="*"/>  <!-- Content -->
+                <ColumnDefinition Width="90"/>
+                <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
 
-            <!-- Sidebar / Navbar -->
-            <StackPanel Grid.Column="0" Background="#2D2D30" Name="SideBar">
-                <TextBlock Text="&#xE774;" FontFamily="Segoe MDL2 Assets" FontSize="24" Foreground="#0078D7" 
-                           HorizontalAlignment="Center" Margin="0,20,0,40"/>
-                
-                <Button Name="navPing" Content="&#xE950;" FontFamily="Segoe MDL2 Assets" Height="50" Background="Transparent" BorderThickness="0" Foreground="White" FontSize="20" ToolTip="Monitor"/>
-                <Button Name="navSettings" Content="&#xE713;" FontFamily="Segoe MDL2 Assets" Height="50" Background="Transparent" BorderThickness="0" Foreground="Gray" FontSize="20" ToolTip="Settings"/>
-                
-                <Separator Background="#444" Margin="10,20"/>
-                
-                <Button Name="btnExit" Content="&#xE7E8;" FontFamily="Segoe MDL2 Assets" Height="50" Background="Transparent" BorderThickness="0" Foreground="#E81123" FontSize="20" VerticalAlignment="Bottom"/>
-            </StackPanel>
+            <!-- Navigation Sidebar -->
+            <Border Grid.Column="0" Background="#121218" CornerRadius="28,0,0,28">
+                <Grid>
+                    <StackPanel Margin="0,40,0,0">
+                        <TextBlock Text="&#xEB55;" FontFamily="Segoe MDL2 Assets" FontSize="32" Foreground="#0078D7" HorizontalAlignment="Center" Margin="0,0,0,50"/>
+                        <Button Name="navDash" Content="&#xE80F;" ToolTip="Command Center" FontFamily="Segoe MDL2 Assets" Height="70" Background="Transparent" BorderThickness="0" Foreground="White" FontSize="26"/>
+                        <Button Name="navLogs" Content="&#xE81C;" ToolTip="Traffic Logs" FontFamily="Segoe MDL2 Assets" Height="70" Background="Transparent" BorderThickness="0" Foreground="#555" FontSize="26"/>
+                        <Button Name="navInfo" Content="&#xE946;" ToolTip="Advanced Diagnostics" FontFamily="Segoe MDL2 Assets" Height="70" Background="Transparent" BorderThickness="0" Foreground="#555" FontSize="26"/>
+                        <Button Name="navSet" Content="&#xE713;" ToolTip="Engine Settings" FontFamily="Segoe MDL2 Assets" Height="70" Background="Transparent" BorderThickness="0" Foreground="#555" FontSize="26"/>
+                    </StackPanel>
+                    <Button Name="btnExit" Content="&#xE711;" FontFamily="Segoe MDL2 Assets" Height="70" Background="Transparent" BorderThickness="0" Foreground="#E81123" Opacity="0.5" FontSize="22" VerticalAlignment="Bottom" Margin="0,0,0,30"/>
+                </Grid>
+            </Border>
 
-            <!-- Content Area -->
-            <Grid Grid.Column="1" Margin="30">
-                <!-- Header -->
+            <!-- Main Workspace -->
+            <Grid Grid.Column="1" Margin="45,35">
                 <StackPanel VerticalAlignment="Top" HorizontalAlignment="Right" Orientation="Horizontal">
-                    <Button Name="btnMinimize" Content="&#xE921;" FontFamily="Segoe MDL2 Assets" Background="Transparent" BorderThickness="0" Foreground="Gray" Margin="0,0,10,0"/>
+                    <Button Name="btnMin" Content="&#xE949;" FontFamily="Segoe MDL2 Assets" Background="Transparent" BorderThickness="0" Foreground="#444" FontSize="18" Margin="0,0,15,0"/>
                 </StackPanel>
 
-                <!-- PING VIEW -->
-                <StackPanel Name="viewPing" Visibility="Visible" VerticalAlignment="Center">
-                    <TextBlock Name="lblTitle" Text="Network Monitor" FontSize="28" FontWeight="Bold" Foreground="White" Margin="0,0,0,5"/>
-                    <TextBlock Name="lblHostDisplay" Text="Target: 8.8.8.8" Foreground="Gray" Margin="0,0,0,30"/>
-                    
-                    <Grid>
-                        <Ellipse Name="statusRing" Width="180" Height="180" Stroke="#333" StrokeThickness="10"/>
-                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-                            <TextBlock Name="lblPingLarge" Text="--" FontSize="48" FontWeight="Black" Foreground="White" HorizontalAlignment="Center"/>
-                            <TextBlock Text="ms" FontSize="14" Foreground="Gray" HorizontalAlignment="Center"/>
+                <!-- PAGE 1: DASHBOARD -->
+                <Grid Name="pageDash" Visibility="Visible">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <StackPanel Grid.Row="0">
+                        <TextBlock Text="Network Intelligence" FontSize="38" FontWeight="Bold" Foreground="White"/>
+                        <StackPanel Orientation="Horizontal" Margin="2,5,0,0">
+                             <TextBlock Name="lblHostSub" Text="Host: 8.8.8.8" Foreground="#666" FontSize="14" FontWeight="SemiBold"/>
+                             <TextBlock Text=" • " Foreground="#333" Margin="8,0"/>
+                             <TextBlock Name="lblStatus" Text="CORE IDLE" Foreground="#0078D7" FontSize="14" FontWeight="Bold"/>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <Grid Grid.Row="1" Margin="0,30">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="1.3*"/>
+                            <ColumnDefinition Width="2*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Primary Gauge -->
+                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                            <Grid HorizontalAlignment="Center">
+                                <Ellipse Width="230" Height="230" Stroke="#16161D" StrokeThickness="18"/>
+                                <Ellipse Name="ringProgress" Width="230" Height="230" Stroke="#2A2A2E" StrokeThickness="18" StrokeDashArray="8,2"/>
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Name="lblBigPing" Text="--" FontSize="76" FontWeight="Black" Foreground="White" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="MILLISECONDS" FontSize="11" Foreground="#444" FontWeight="Bold" HorizontalAlignment="Center"/>
+                                </StackPanel>
+                            </Grid>
+                            
+                            <UniformGrid Columns="2" Margin="0,35,0,0" Width="240">
+                                <StackPanel HorizontalAlignment="Center">
+                                    <TextBlock Text="&#xE898;" FontFamily="Segoe MDL2 Assets" Foreground="#0078D7" FontSize="18" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="UPLOAD" Foreground="#444" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,2,0,4"/>
+                                    <TextBlock Name="txtSendRate" Text="0 Kbps" Foreground="White" FontSize="16" FontWeight="Bold" HorizontalAlignment="Center" FontFamily="Consolas"/>
+                                </StackPanel>
+                                <StackPanel HorizontalAlignment="Center">
+                                    <TextBlock Text="&#xE896;" FontFamily="Segoe MDL2 Assets" Foreground="#44E811" FontSize="18" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="DOWNLOAD" Foreground="#444" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,2,0,4"/>
+                                    <TextBlock Name="txtRecvRate" Text="0 Kbps" Foreground="White" FontSize="16" FontWeight="Bold" HorizontalAlignment="Center" FontFamily="Consolas"/>
+                                </StackPanel>
+                            </UniformGrid>
+                        </StackPanel>
+
+                        <!-- Analytics Side -->
+                        <StackPanel Grid.Column="1" Margin="45,0,0,0">
+                            <Border Background="#121218" CornerRadius="20" Padding="25" BorderBrush="#1F1F24" BorderThickness="1">
+                                <StackPanel>
+                                    <TextBlock Text="STABILITY TREND" FontSize="11" Foreground="#0078D7" FontWeight="Bold" Margin="0,0,0,20"/>
+                                    <Canvas Name="canvas" Height="150" Background="Transparent" ClipToBounds="True">
+                                        <Polyline Name="polyline" Stroke="#0078D7" StrokeThickness="3.5" StrokeLineJoin="Round"/>
+                                    </Canvas>
+                                </StackPanel>
+                            </Border>
+                            
+                            <UniformGrid Columns="3" Margin="0,30,0,0">
+                                <StackPanel Margin="0,0,0,20"><TextBlock Text="MINIMUM" Foreground="#444" FontSize="11" FontWeight="Bold"/><TextBlock Name="txtMin" Text="---" Foreground="White" FontSize="20" FontWeight="SemiBold" FontFamily="Consolas"/></StackPanel>
+                                <StackPanel Margin="0,0,0,20"><TextBlock Text="AVERAGE" Foreground="#444" FontSize="11" FontWeight="Bold"/><TextBlock Name="txtAvg" Text="---" Foreground="#0078D7" FontSize="20" FontWeight="SemiBold" FontFamily="Consolas"/></StackPanel>
+                                <StackPanel Margin="0,0,0,20"><TextBlock Text="MAXIMUM" Foreground="#444" FontSize="11" FontWeight="Bold"/><TextBlock Name="txtMax" Text="---" Foreground="White" FontSize="20" FontWeight="SemiBold" FontFamily="Consolas"/></StackPanel>
+                                
+                                <StackPanel><TextBlock Text="JITTER" Foreground="#444" FontSize="11" FontWeight="Bold"/><TextBlock Name="txtJitter" Text="---" Foreground="#FFB900" FontSize="20" FontWeight="SemiBold" FontFamily="Consolas"/></StackPanel>
+                                <StackPanel><TextBlock Text="LOSS" Foreground="#444" FontSize="11" FontWeight="Bold"/><TextBlock Name="txtLoss" Text="0" Foreground="#E81123" FontSize="20" FontWeight="SemiBold" FontFamily="Consolas"/></StackPanel>
+                                <StackPanel><TextBlock Text="RANKING" Foreground="#444" FontSize="11" FontWeight="Bold"/><TextBlock Name="txtQuality" Text="IDLE" Foreground="#555" FontSize="20" FontWeight="Bold"/></StackPanel>
+                            </UniformGrid>
                         </StackPanel>
                     </Grid>
 
-                    <Button Name="btnStartStop" Content="START SERVICE" Height="45" Width="200" Margin="0,40,0,0" Background="#0078D7" Foreground="White" FontWeight="Bold">
-                        <Button.Resources><Style TargetType="Border"><Setter Property="CornerRadius" Value="22"/></Style></Button.Resources>
-                    </Button>
-                </StackPanel>
+                    <!-- Control Strip -->
+                    <Grid Grid.Row="2">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Button Name="btnAction" Content="START CORE" Width="220" Height="55" Background="#0078D7" Foreground="White" FontWeight="Bold" FontSize="15">
+                            <Button.Resources><Style TargetType="Border"><Setter Property="CornerRadius" Value="27"/></Style></Button.Resources>
+                        </Button>
+                        <StackPanel Grid.Column="1" Margin="30,0,0,0" VerticalAlignment="Center">
+                             <TextBlock Name="lblAlert" Text="" Foreground="#E81123" FontWeight="Bold" FontSize="14"/>
+                             <TextBlock Name="txtUptime" Text="System Ready" Foreground="#555" FontSize="12"/>
+                        </StackPanel>
+                    </Grid>
+                </Grid>
 
-                <!-- SETTINGS VIEW -->
-                <StackPanel Name="viewSettings" Visibility="Collapsed" VerticalAlignment="Center">
-                    <TextBlock Text="Settings" FontSize="28" FontWeight="Bold" Foreground="White" Margin="0,0,0,20"/>
-                    
-                    <TextBlock Text="IP Address / Hostname" Foreground="Gray" Margin="0,10,0,5"/>
-                    <TextBox Name="txtHost" Text="8.8.8.8" FontSize="16" Padding="8" Background="#333" Foreground="White" BorderThickness="0"/>
-                    
-                    <TextBlock Text="Theme Selection" Foreground="Gray" Margin="0,20,0,5"/>
-                    <StackPanel Orientation="Horizontal">
-                        <Button Name="btnDarkTheme" Content="Dark" Width="80" Height="30" Margin="0,0,10,0"/>
-                        <Button Name="btnLightTheme" Content="Light" Width="80" Height="30"/>
+                <!-- PAGE 2: LOGS -->
+                <Grid Name="pageLogs" Visibility="Collapsed">
+                    <StackPanel>
+                        <TextBlock Text="Event Timeline" FontSize="34" Foreground="White" FontWeight="Bold"/>
+                        <TextBlock Text="Detailed packet-by-packet analysis and anomaly detection." Foreground="#555" Margin="0,5,0,20"/>
+                        <ListBox Name="lstLogs" Height="420" Background="#121218" Foreground="#888" BorderThickness="0" FontFamily="Consolas" FontSize="13">
+                             <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <Border BorderBrush="#1A1A1F" BorderThickness="0,0,0,1" Padding="5">
+                                        <TextBlock Text="{Binding Display}" Foreground="{Binding Color}"/>
+                                    </Border>
+                                </DataTemplate>
+                             </ListBox.ItemTemplate>
+                        </ListBox>
+                        <StackPanel Orientation="Horizontal" Margin="0,20,0,0">
+                            <Button Name="btnExport" Content="Export Data" Width="160" Height="40" Background="#0078D7" Foreground="White" FontWeight="SemiBold"/>
+                            <Button Name="btnClearLogs" Content="Purge History" Width="130" Height="40" Background="#1A1A1F" Foreground="#666" Margin="10,0"/>
+                        </StackPanel>
                     </StackPanel>
+                </Grid>
+
+                <!-- PAGE 3: EXPANDED INFO -->
+                <Grid Name="pageInfo" Visibility="Collapsed">
+                    <StackPanel>
+                        <TextBlock Text="Diagnostic Context" FontSize="34" Foreground="White" FontWeight="Bold" Margin="0,0,0,25"/>
+                        <UniformGrid Columns="2">
+                            <Border Background="#121218" Margin="8" Padding="25" CornerRadius="20" BorderBrush="#1F1F24" BorderThickness="1">
+                                <StackPanel><TextBlock Text="LOCAL GATEWAY" Foreground="#0078D7" FontWeight="Bold" FontSize="11" Margin="0,0,0,8"/><TextBlock Name="txtLocalIP" Text="---" Foreground="White" FontSize="22" FontFamily="Consolas"/></StackPanel>
+                            </Border>
+                            <Border Background="#121218" Margin="8" Padding="25" CornerRadius="20" BorderBrush="#1F1F24" BorderThickness="1">
+                                <StackPanel><TextBlock Text="DEFAULT ROUTER" Foreground="#0078D7" FontWeight="Bold" FontSize="11" Margin="0,0,0,8"/><TextBlock Name="txtGateway" Text="---" Foreground="White" FontSize="22" FontFamily="Consolas"/></StackPanel>
+                            </Border>
+                            <Border Background="#121218" Margin="8" Padding="25" CornerRadius="20" BorderBrush="#1F1F24" BorderThickness="1">
+                                <StackPanel><TextBlock Text="EXTERNAL WAN IP" Foreground="#FFB900" FontWeight="Bold" FontSize="11" Margin="0,0,0,8"/><TextBlock Name="txtPublicIP" Text="Detecting..." Foreground="White" FontSize="22" FontFamily="Consolas"/></StackPanel>
+                            </Border>
+                            <Border Background="#121218" Margin="8" Padding="25" CornerRadius="20" BorderBrush="#1F1F24" BorderThickness="1">
+                                <StackPanel><TextBlock Text="PRIMARY DNS" Foreground="#0078D7" FontWeight="Bold" FontSize="11" Margin="0,0,0,8"/><TextBlock Name="txtDNS" Text="---" Foreground="White" FontSize="22" FontFamily="Consolas"/></StackPanel>
+                            </Border>
+                        </UniformGrid>
+                        
+                        <Border Background="#1A1A1F" CornerRadius="15" Padding="20" Margin="8,20,8,0">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Name="txtAdapterType" Text="&#xE839;" FontFamily="Segoe MDL2 Assets" Foreground="#0078D7" FontSize="24" VerticalAlignment="Center"/>
+                                <StackPanel Grid.Column="1" Margin="20,0">
+                                    <TextBlock Name="txtAdapterName" Text="Network Controller" Foreground="White" FontSize="16" FontWeight="Bold"/>
+                                    <TextBlock Text="HARDWARE INTERFACE" Foreground="#444" FontSize="10" FontWeight="Black"/>
+                                </StackPanel>
+                                <TextBlock Grid.Column="2" Name="txtLinkSpeed" Text="--- Mbps" Foreground="#44E811" FontWeight="Bold" FontSize="18" VerticalAlignment="Center" FontFamily="Consolas"/>
+                            </Grid>
+                        </Border>
+                        
+                        <Button Name="btnRefreshNet" Content="Re-Scan Network Topology" Margin="8,30,0,0" Width="240" Height="45" Background="#0078D7" Foreground="White" FontWeight="Bold">
+                            <Button.Resources><Style TargetType="Border"><Setter Property="CornerRadius" Value="10"/></Style></Button.Resources>
+                        </Button>
+                    </StackPanel>
+                </Grid>
+
+                <!-- PAGE 4: SETTINGS -->
+                <StackPanel Name="pageSet" Visibility="Collapsed">
+                    <TextBlock Text="Engine Config" FontSize="34" Foreground="White" FontWeight="Bold" Margin="0,0,0,30"/>
+                    <TextBlock Text="TARGET ENDPOINT" Foreground="#555" FontWeight="Bold" FontSize="12" Margin="0,0,0,8"/>
+                    <TextBox Name="editHost" Text="8.8.8.8" Padding="15" Background="#121218" Foreground="White" BorderThickness="1" BorderBrush="#25252A" Margin="0,0,0,25" FontFamily="Consolas" FontSize="16"/>
+                    
+                    <TextBlock Text="LATENCY ALARM THRESHOLD" Foreground="#555" FontWeight="Bold" FontSize="12" Margin="0,0,0,8"/>
+                    <Slider Name="sldThresh" Minimum="20" Maximum="1000" Value="100" Margin="0,0,0,10"/>
+                    <TextBlock Name="lblThreshVal" Text="100 ms" Foreground="#0078D7" FontWeight="Bold" HorizontalAlignment="Right" FontSize="14"/>
+                    
+                    <Button Name="btnSave" Content="Apply Configuration" Width="200" Height="50" Background="#0078D7" Foreground="White" FontWeight="Bold" Margin="0,40,0,0" HorizontalAlignment="Left">
+                        <Button.Resources><Style TargetType="Border"><Setter Property="CornerRadius" Value="10"/></Style></Button.Resources>
+                    </Button>
                 </StackPanel>
             </Grid>
         </Grid>
@@ -84,109 +236,197 @@ if (-not ([System.Management.Automation.PSTypeName]'IconHelper').Type) {
 $reader = New-Object System.Xml.XmlNodeReader $xaml
 $window = [Windows.Markup.XamlReader]::Load($reader)
 
-$nodes = "MainBorder", "SideBar", "navPing", "navSettings", "viewPing", "viewSettings", "btnStartStop", 
-"txtHost", "lblPingLarge", "lblHostDisplay", "statusRing", "btnExit", "btnMinimize", 
-"btnDarkTheme", "btnLightTheme", "lblTitle"
-$nodes | ForEach-Object { Set-Variable -Name $_ -Value $window.FindName($_) }
+$ui = @{}
+"MainBorder", "navDash", "navLogs", "navInfo", "navSet", "pageDash", "pageLogs", "pageInfo", "pageSet", 
+"btnAction", "editHost", "lblBigPing", "lblHostSub", "ringProgress", "polyline", "canvas", "btnClearLogs",
+"txtMin", "txtAvg", "txtMax", "lstLogs", "btnExport", "txtLocalIP", "txtGateway", "txtPublicIP", "txtDNS",
+"sldThresh", "lblThreshVal", "btnSave", "btnExit", "btnMin", "lblAlert", "txtUptime", "btnRefreshNet",
+"txtJitter", "txtLoss", "txtQuality", "lblStatus", "txtSendRate", "txtRecvRate", "txtAdapterType", 
+"txtAdapterName", "txtLinkSpeed" | ForEach-Object { $ui[$_] = $window.FindName($_) }
 
-function Set-Theme($theme) {
-    if ($theme -eq "Dark") {
-        $MainBorder.Background = "#1E1E1E"
-        $SideBar.Background = "#2D2D30"
-        $lblTitle.Foreground = "White"
-        $lblPingLarge.Foreground = "White"
-        $txtHost.Background = "#333"
-        $txtHost.Foreground = "White"
+function Add-LogEntry {
+    param($Status, $Latency, $Color = "#888")
+    $timestamp = Get-Date -f "HH:mm:ss"
+    $latText = if ($Latency -eq -1) { "LOST" } else { "$Latency ms" }
+    $entry = [PSCustomObject]@{
+        Timestamp = (Get-Date -f "yyyy-MM-dd HH:mm:ss")
+        Display   = "[$timestamp] $Status >> $latText"
+        Color     = $Color
     }
-    else {
-        $MainBorder.Background = "#F3F3F3"
-        $SideBar.Background = "#E5E5E5"
-        $lblTitle.Foreground = "#333"
-        $lblPingLarge.Foreground = "#333"
-        $txtHost.Background = "White"
-        $txtHost.Foreground = "#333"
-    }
+    $window.Dispatcher.Invoke({
+            $eventLog.Insert(0, $entry)
+            if ($eventLog.Count -gt 500) { $eventLog.RemoveAt(500) }
+        })
 }
 
-$navPing.Add_Click({ 
-        $viewPing.Visibility = "Visible"; $viewSettings.Visibility = "Collapsed"
-        $navPing.Foreground = "White"; $navSettings.Foreground = "Gray"
-    })
-$navSettings.Add_Click({ 
-        $viewPing.Visibility = "Collapsed"; $viewSettings.Visibility = "Visible"
-        $navSettings.Foreground = "White"; $navPing.Foreground = "Gray"
-    })
+function Get-NetworkSummary {
+    try {
+        $net = Get-NetIPConfiguration | Where-Object { $null -ne $_.IPv4Address } | Select-Object -First 1
+        if ($null -ne $net) {
+            $ui.txtLocalIP.Text = $net.IPv4Address.IPAddress
+            $ui.txtGateway.Text = $net.IPv4DefaultGateway.NextHop
+            $ui.txtDNS.Text = ($net.DNSServer.ServerAddresses | Out-String).Trim()
+        }
+        
+        $adapter = Get-NetAdapter | Where-Object { $_.Status -eq "Up" } | Select-Object -First 1
+        if ($null -ne $adapter) {
+            $ui.txtAdapterName.Text = $adapter.InterfaceDescription
+            $ui.txtLinkSpeed.Text = "$($adapter.LinkSpeed)"
+            $ui.txtAdapterType.Text = if ($adapter.MediaType -like "*802.11*") { [char]0xE701 } else { [char]0xE839 }
+        }
 
-
-$btnExit.Add_Click({ $window.Close() })
-$btnMinimize.Add_Click({ $window.WindowState = "Minimized" })
-$window.Add_MouseLeftButtonDown({ $window.DragMove() }) # Window is draggable
-
-$notifyIcon = New-Object System.Windows.Forms.NotifyIcon
-$notifyIcon.Text = "NetPulse Pro"
-$notifyIcon.Visible = $true
-$notifyIcon.Icon = [System.Drawing.Icon]::ExtractAssociatedIcon((Get-Process -id $pid).Path)
-
-$ctx = New-Object System.Windows.Forms.ContextMenuStrip
-$ctx.Items.Add("Open", $null, { $window.Show(); $window.WindowState = "Normal" })
-$ctx.Items.Add("Exit", $null, { $window.Close() })
-$notifyIcon.ContextMenuStrip = $ctx
-
-function Set-Tray([string]$val, $color) {
-    $bmp = New-Object System.Drawing.Bitmap(16, 16)
-    $g = [System.Drawing.Graphics]::FromImage($bmp)
-    $font = New-Object System.Drawing.Font("Arial", 8, [System.Drawing.FontStyle]::Bold)
-    $g.Clear([System.Drawing.Color]::Transparent)
-    $g.DrawString($val, $font, (New-Object System.Drawing.SolidBrush($color)), -1, 1)
-    $h = $bmp.GetHicon()
-    $old = $notifyIcon.Icon
-    $notifyIcon.Icon = [System.Drawing.Icon]::FromHandle($h)
-    if ($old) { [IconHelper]::DestroyIcon($old.Handle) }
-    $g.Dispose(); $bmp.Dispose()
+        $ui.txtPublicIP.Text = "Querying..."
+        $ps = [powershell]::Create().AddScript({
+                try { (Invoke-RestMethod -Uri "https://api.ipify.org" -TimeoutSec 2).Trim() } catch { "Offline" }
+            })
+        $async = $ps.BeginInvoke()
+        
+        $checkTimer = New-Object System.Windows.Threading.DispatcherTimer
+        $checkTimer.Interval = [TimeSpan]::FromMilliseconds(500)
+        $checkTimer.Add_Tick({
+                if ($async.IsCompleted) {
+                    $res = $ps.EndInvoke($async)
+                    $ui.txtPublicIP.Text = $res
+                    $ps.Dispose()
+                    $this.Stop()
+                }
+            })
+        $checkTimer.Start()
+    }
+    catch { $ui.txtLocalIP.Text = "Discovery Error" }
 }
 
+function Start-StabilityGraph {
+    $arr = $pingHistory.ToArray()
+    if ($arr.Count -lt 2) { return }
+    
+    $pts = New-Object System.Windows.Media.PointCollection
+    $maxVal = ($arr | Measure-Object -Maximum).Maximum
+    if ($maxVal -lt $ui.sldThresh.Value) { $maxVal = $ui.sldThresh.Value }
+    
+    $w = $ui.canvas.ActualWidth
+    $h = $ui.canvas.ActualHeight
+    $step = if ($arr.Count -gt 1) { $w / ($arr.Count - 1) } else { 0 }
+    
+    for ($i = 0; $i -lt $arr.Count; $i++) {
+        $x = $i * $step
+        $y = $h - (($arr[$i] / ($maxVal * 1.2)) * $h)
+        $pts.Add((New-Object System.Windows.Point($x, $y)))
+    }
+    $ui.polyline.Points = $pts
+}
+
+$pingProvider = New-Object System.Net.NetworkInformation.Ping
 $timer = New-Object System.Windows.Threading.DispatcherTimer
 $timer.Interval = [TimeSpan]::FromSeconds(1)
+$prevSent = 0; $prevRecv = 0
+
 $timer.Add_Tick({
-        $hostName = $txtHost.Text
-        $lblHostDisplay.Text = "Target: $hostName"
+        $sessionStats.TotalPings++
     
         try {
-            $res = Test-Connection -ComputerName $hostName -Count 1 -ErrorAction SilentlyContinue
-            if ($res) {
-                $ms = $res.ResponseTime
-                $lblPingLarge.Text = $ms
-                $statusRing.Stroke = "#0078D7"
-                Set-Tray -val $ms -color ([System.Drawing.Color]::LimeGreen)
+            $adapter = Get-NetAdapter | Where-Object { $_.Status -eq "Up" } | Select-Object -First 1
+            $perf = Get-NetAdapterStatistics -Name $adapter.Name
+            if ($prevSent -gt 0) {
+                $ui.txtSendRate.Text = "$([Math]::Round(($perf.SentBytes - $prevSent) / 1024, 1)) Kbps"
+                $ui.txtRecvRate.Text = "$([Math]::Round(($perf.ReceivedBytes - $prevRecv) / 1024, 1)) Kbps"
             }
-            else {
-                $lblPingLarge.Text = "!!"
-                $statusRing.Stroke = "Red"
-                Set-Tray -val "!!" -color ([System.Drawing.Color]::Red)
-            }
+            $script:prevSent = $perf.SentBytes; $script:prevRecv = $perf.ReceivedBytes
         }
-        catch { $lblPingLarge.Text = "ERR" }
+        catch {}
+
+        try {
+            $reply = $pingProvider.Send($ui.editHost.Text, 900)
+            if ($reply.Status -eq "Success") {
+                $ms = [int]$reply.RoundtripTime
+                $ui.lblBigPing.Text = $ms
+            
+                if ($sessionStats.LastLat -gt 0) {
+                    $jitter = [Math]::Abs($ms - $sessionStats.LastLat)
+                    $sessionStats.Jitter = $jitter
+                    $ui.txtJitter.Text = "$($jitter)ms"
+                }
+                $sessionStats.LastLat = $ms
+                if ($ms -gt $sessionStats.MaxLat) { $sessionStats.MaxLat = $ms }
+                if ($ms -lt $sessionStats.MinLat) { $sessionStats.MinLat = $ms }
+
+                if ($ms -gt $ui.sldThresh.Value) {
+                    $ui.ringProgress.Stroke = [System.Windows.Media.Brushes]::Crimson
+                    $ui.lblAlert.Text = "LATENCY SPIKE"
+                    Add-LogEntry "SPIKE" $ms "#E81123"
+                }
+                else {
+                    $ui.ringProgress.Stroke = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Color]::FromRgb(0, 120, 215))
+                    $ui.lblAlert.Text = ""
+                    Add-LogEntry "OK" $ms "#666"
+                }
+
+                $quality = "EXCELLENT"; $qColor = "#44E811"
+                if ($ms -gt 100 -or $sessionStats.Jitter -gt 20) { $quality = "FAIR"; $qColor = "#FFB900" }
+                if ($ms -gt 250 -or $sessionStats.Jitter -gt 50) { $quality = "POOR"; $qColor = "#E81123" }
+                $ui.txtQuality.Text = $quality
+                $ui.txtQuality.Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString($qColor)
+            
+                $ui.lblStatus.Text = "CORE ACTIVE"
+                $ui.lblStatus.Foreground = [System.Windows.Media.Brushes]::LimeGreen
+
+                $pingHistory.Enqueue($ms)
+                if ($pingHistory.Count -gt 25) { [void]$pingHistory.Dequeue() }
+            
+                $ui.txtMin.Text = "$($sessionStats.MinLat)ms"
+                $ui.txtMax.Text = "$($sessionStats.MaxLat)ms"
+                $ui.txtLoss.Text = $sessionStats.FailedPings
+                $ui.txtAvg.Text = "$([Math]::Round(($pingHistory.ToArray() | Measure-Object -Average).Average))ms"
+                Start-StabilityGraph
+            }
+            else { throw "Timeout" }
+        }
+        catch {
+            $sessionStats.FailedPings++; Add-LogEntry "LOSS" -1 "#E81123"
+            $ui.lblBigPing.Text = "!!"; $ui.ringProgress.Stroke = [System.Windows.Media.Brushes]::Red
+            $ui.lblStatus.Text = "PACKET LOSS"; $ui.txtQuality.Text = "CRITICAL"
+        }
+    
+        $uptime = 100 - ($sessionStats.FailedPings / $sessionStats.TotalPings * 100)
+        $ui.txtUptime.Text = "Stability: $([Math]::Round($uptime, 2))% | Packets: $($sessionStats.TotalPings)"
     })
 
-$btnStartStop.Add_Click({
-        if ($timer.IsEnabled) {
+$ui.btnAction.Add_Click({
+        if ($timer.IsEnabled) { 
             $timer.Stop()
-            $btnStartStop.Content = "START SERVICE"
-            $btnStartStop.Background = "#0078D7"
+            $ui.btnAction.Content = "START CORE"
+            $ui.btnAction.Background = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#0078D7")
+            $ui.lblStatus.Text = "CORE IDLE"
+            $ui.lblStatus.Foreground = [System.Windows.Media.Brushes]::Gray
         }
-        else {
+        else { 
             $timer.Start()
-            $btnStartStop.Content = "STOP SERVICE"
-            $btnStartStop.Background = "#D70000"
+            $ui.btnAction.Content = "STOP CORE"
+            $ui.btnAction.Background = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#1A1A1F")
+            $ui.lblStatus.Text = "INITIALIZING..."
         }
     })
 
-$btnDarkTheme.Add_Click({ Set-Theme "Dark" })
-$btnLightTheme.Add_Click({ Set-Theme "Light" })
+$ui.navDash.Add_Click({ $ui.pageDash.Visibility = "Visible"; $ui.pageLogs.Visibility = $ui.pageInfo.Visibility = $ui.pageSet.Visibility = "Collapsed" })
+$ui.navLogs.Add_Click({ $ui.pageLogs.Visibility = "Visible"; $ui.pageDash.Visibility = $ui.pageInfo.Visibility = $ui.pageSet.Visibility = "Collapsed" })
+$ui.navInfo.Add_Click({ Get-NetworkSummary; $ui.pageInfo.Visibility = "Visible"; $ui.pageDash.Visibility = $ui.pageLogs.Visibility = $ui.pageSet.Visibility = "Collapsed" })
+$ui.navSet.Add_Click({ $ui.pageSet.Visibility = "Visible"; $ui.pageDash.Visibility = $ui.pageLogs.Visibility = $ui.pageInfo.Visibility = "Collapsed" })
 
-$window.Add_Closed({
-        $notifyIcon.Visible = $false
-        $notifyIcon.Dispose()
+$ui.btnSave.Add_Click({
+        $config.Host = $ui.editHost.Text; $config.Threshold = $ui.sldThresh.Value
+        $config | ConvertTo-Json | Set-Content $configPath
+        $ui.lblHostSub.Text = "Host: $($ui.editHost.Text)"
+        [System.Windows.MessageBox]::Show("Configuration saved successfully.")
     })
 
+$ui.btnRefreshNet.Add_Click({ Get-NetworkSummary })
+$ui.btnExport.Add_Click({ $eventLog | Export-Csv -Path $config.LogPath -NoTypeInformation; [System.Windows.MessageBox]::Show("Log exported to Desktop.") })
+$ui.lstLogs.ItemsSource = $eventLog
+$ui.btnClearLogs.Add_Click({ $eventLog.Clear() })
+$ui.sldThresh.Add_ValueChanged({ $ui.lblThreshVal.Text = "$([Math]::Round($ui.sldThresh.Value)) ms" })
+$ui.btnExit.Add_Click({ $window.Close() })
+$ui.btnMin.Add_Click({ $window.WindowState = "Minimized" })
+$window.Add_MouseLeftButtonDown({ $window.DragMove() })
+
+Get-NetworkSummary
 $window.ShowDialog()
