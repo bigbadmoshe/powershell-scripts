@@ -20,7 +20,9 @@ if ($null -eq $config) {
     $config = [PSCustomObject]@{ 
         Host      = "8.8.8.8"
         Threshold = 100 
-        LogPath   = "$env:USERPROFILE\Desktop\NetPulse_Log.csv" 
+        LogPath   = "$env:USERPROFILE\Desktop\NetPulse_Log.csv"
+        Interval  = 1000
+        AutoStart = $false
     }
 }
 
@@ -215,17 +217,52 @@ $sessionStats = [PSCustomObject]@{
 
                 <!-- PAGE 4: SETTINGS -->
                 <StackPanel Name="pageSet" Visibility="Collapsed">
-                    <TextBlock Text="Engine Config" FontSize="34" Foreground="White" FontWeight="Bold" Margin="0,0,0,30"/>
-                    <TextBlock Text="TARGET ENDPOINT" Foreground="#555" FontWeight="Bold" FontSize="12" Margin="0,0,0,8"/>
-                    <TextBox Name="editHost" Text="8.8.8.8" Padding="15" Background="#121218" Foreground="White" BorderThickness="1" BorderBrush="#25252A" Margin="0,0,0,25" FontFamily="Consolas" FontSize="16"/>
+                    <TextBlock Text="Engine Config" FontSize="34" Foreground="White" FontWeight="Bold" Margin="0,0,0,25"/>
                     
-                    <TextBlock Text="LATENCY ALARM THRESHOLD" Foreground="#555" FontWeight="Bold" FontSize="12" Margin="0,0,0,8"/>
-                    <Slider Name="sldThresh" Minimum="20" Maximum="1000" Value="100" Margin="0,0,0,10"/>
-                    <TextBlock Name="lblThreshVal" Text="100 ms" Foreground="#0078D7" FontWeight="Bold" HorizontalAlignment="Right" FontSize="14"/>
-                    
-                    <Button Name="btnSave" Content="Apply Configuration" Width="200" Height="50" Background="#0078D7" Foreground="White" FontWeight="Bold" Margin="0,40,0,0" HorizontalAlignment="Left">
-                        <Button.Resources><Style TargetType="Border"><Setter Property="CornerRadius" Value="10"/></Style></Button.Resources>
-                    </Button>
+                    <ScrollViewer Height="480" VerticalScrollBarVisibility="Auto">
+                        <StackPanel Margin="0,0,15,0">
+                            <!-- Section: Connection -->
+                            <TextBlock Text="TARGET ENDPOINT" Foreground="#0078D7" FontWeight="Bold" FontSize="12" Margin="0,0,0,8"/>
+                            <TextBox Name="editHost" Text="8.8.8.8" Padding="15" Background="#121218" Foreground="White" BorderThickness="1" BorderBrush="#25252A" Margin="0,0,0,20" FontFamily="Consolas" FontSize="16"/>
+                            
+                            <!-- Section: Timing -->
+                            <Grid Margin="0,0,0,20">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" Margin="0,0,10,0">
+                                    <TextBlock Text="POLLING INTERVAL (ms)" Foreground="#555" FontWeight="Bold" FontSize="11" Margin="0,0,0,8"/>
+                                    <TextBox Name="editInterval" Text="1000" Padding="10" Background="#121218" Foreground="White" BorderThickness="1" BorderBrush="#25252A" FontFamily="Consolas"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Margin="10,0,0,0">
+                                    <TextBlock Text="ALARM THRESHOLD" Foreground="#555" FontWeight="Bold" FontSize="11" Margin="0,0,0,8"/>
+                                    <TextBlock Name="lblThreshVal" Text="100 ms" Foreground="#0078D7" FontWeight="Bold" HorizontalAlignment="Right"/>
+                                    <Slider Name="sldThresh" Minimum="20" Maximum="1000" Value="100"/>
+                                </StackPanel>
+                            </Grid>
+
+                            <!-- Section: Automation -->
+                            <TextBlock Text="ENGINE BEHAVIOR" Foreground="#0078D7" FontWeight="Bold" FontSize="12" Margin="0,20,0,12"/>
+                            <CheckBox Name="chkAutoStart" Content="Start Engine on Launch" Foreground="White" Margin="0,0,0,10"/>
+                            <CheckBox Name="chkMinimizeToTray" Content="Minimize to System Tray" Foreground="White" Margin="0,0,0,20"/>
+
+                            <!-- Section: Logging -->
+                            <TextBlock Text="LOG MANAGEMENT" Foreground="#555" FontWeight="Bold" FontSize="12" Margin="0,10,0,8"/>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBox Name="editLogPath" Text="..." Padding="10" Background="#121218" Foreground="#888" BorderThickness="1" BorderBrush="#25252A" IsReadOnly="True"/>
+                                <Button Name="btnBrowseLog" Grid.Column="1" Content="BROWSE" Width="80" Margin="5,0,0,0" Background="#25252A" Foreground="White" FontSize="10"/>
+                            </Grid>
+                            
+                            <Button Name="btnSave" Content="Apply Configuration" Width="220" Height="50" Background="#0078D7" Foreground="White" FontWeight="Bold" Margin="0,40,0,20" HorizontalAlignment="Left">
+                                <Button.Resources><Style TargetType="Border"><Setter Property="CornerRadius" Value="10"/></Style></Button.Resources>
+                            </Button>
+                        </StackPanel>
+                    </ScrollViewer>
                 </StackPanel>
             </Grid>
         </Grid>
@@ -242,21 +279,29 @@ $ui = @{}
 "txtMin", "txtAvg", "txtMax", "lstLogs", "btnExport", "txtLocalIP", "txtGateway", "txtPublicIP", "txtDNS",
 "sldThresh", "lblThreshVal", "btnSave", "btnExit", "btnMin", "lblAlert", "txtUptime", "btnRefreshNet",
 "txtJitter", "txtLoss", "txtQuality", "lblStatus", "txtSendRate", "txtRecvRate", "txtAdapterType", 
-"txtAdapterName", "txtLinkSpeed" | ForEach-Object { $ui[$_] = $window.FindName($_) }
+"txtAdapterName", "txtLinkSpeed", "editInterval", "chkAutoStart", "chkMinimizeToTray", "editLogPath", 
+"btnBrowseLog" | ForEach-Object { $ui[$_] = $window.FindName($_) }
 
 function Add-LogEntry {
     param($Status, $Latency, $Color = "#888")
     $timestamp = Get-Date -f "HH:mm:ss"
     $latText = if ($Latency -eq -1) { "LOST" } else { "$Latency ms" }
+    
     $entry = [PSCustomObject]@{
         Timestamp = (Get-Date -f "yyyy-MM-dd HH:mm:ss")
+        Status    = $Status
+        Latency   = $latText
         Display   = "[$timestamp] $Status >> $latText"
         Color     = $Color
     }
+
     $window.Dispatcher.Invoke({
             $eventLog.Insert(0, $entry)
             if ($eventLog.Count -gt 500) { $eventLog.RemoveAt(500) }
         })
+
+    $entry | Select-Object Timestamp, Status, Latency | 
+    Export-Csv -Path $config.LogPath -Append -NoTypeInformation
 }
 
 function Get-NetworkSummary {
@@ -391,17 +436,26 @@ $timer.Add_Tick({
         $ui.txtUptime.Text = "Stability: $([Math]::Round($uptime, 2))% | Packets: $($sessionStats.TotalPings)"
     })
 
+$ui.btnBrowseLog.Add_Click({
+        $dialog = New-Object System.Windows.Forms.SaveFileDialog
+        $dialog.Filter = "CSV Files (*.csv)|*.csv"
+        $dialog.InitialDirectory = [System.Environment]::GetFolderPath("Desktop")
+        if ($dialog.ShowDialog() -eq "OK") {
+            $ui.editLogPath.Text = $dialog.FileName
+        }
+    })
+
 $ui.btnAction.Add_Click({
         if ($timer.IsEnabled) { 
             $timer.Stop()
-            $ui.btnAction.Content = "START CORE"
+            $ui.btnAction.Content = "START MONITORING"
             $ui.btnAction.Background = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#0078D7")
             $ui.lblStatus.Text = "CORE IDLE"
             $ui.lblStatus.Foreground = [System.Windows.Media.Brushes]::Gray
         }
         else { 
             $timer.Start()
-            $ui.btnAction.Content = "STOP CORE"
+            $ui.btnAction.Content = "STOP MONITORING"
             $ui.btnAction.Background = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#1A1A1F")
             $ui.lblStatus.Text = "INITIALIZING..."
         }
@@ -413,14 +467,44 @@ $ui.navInfo.Add_Click({ Get-NetworkSummary; $ui.pageInfo.Visibility = "Visible";
 $ui.navSet.Add_Click({ $ui.pageSet.Visibility = "Visible"; $ui.pageDash.Visibility = $ui.pageLogs.Visibility = $ui.pageInfo.Visibility = "Collapsed" })
 
 $ui.btnSave.Add_Click({
-        $config.Host = $ui.editHost.Text; $config.Threshold = $ui.sldThresh.Value
+        if (-not (Get-Member -InputObject $config -Name "Interval")) {
+            $config | Add-Member -MemberType NoteProperty -Name "Interval" -Value 1000
+        }
+        if (-not (Get-Member -InputObject $config -Name "AutoStart")) {
+            $config | Add-Member -MemberType NoteProperty -Name "AutoStart" -Value $false
+        }
+
+        $config.Host = $ui.editHost.Text
+        $config.Threshold = $ui.sldThresh.Value
+        $config.Interval = [int]$ui.editInterval.Text
+        $config.AutoStart = $ui.chkAutoStart.IsChecked
+        $config.LogPath = $ui.editLogPath.Text
+
+        $timer.Interval = [TimeSpan]::FromMilliseconds($config.Interval)
+    
         $config | ConvertTo-Json | Set-Content $configPath
         $ui.lblHostSub.Text = "Host: $($ui.editHost.Text)"
         [System.Windows.MessageBox]::Show("Configuration saved successfully.")
     })
 
+if ($ui.editInterval.Text -match '^\d+$') {
+    $config.Interval = [int]$ui.editInterval.Text
+}
+else {
+    $config.Interval = 1000
+}
+
 $ui.btnRefreshNet.Add_Click({ Get-NetworkSummary })
-$ui.btnExport.Add_Click({ $eventLog | Export-Csv -Path $config.LogPath -NoTypeInformation; [System.Windows.MessageBox]::Show("Log exported to Desktop.") })
+$ui.btnExport.Add_Click({ 
+        if ($eventLog.Count -eq 0) {
+            [System.Windows.MessageBox]::Show("No data to export!")
+            return
+        }
+        $eventLog | Select-Object Timestamp, Status, Latency | 
+        Export-Csv -Path $config.LogPath -NoTypeInformation
+        [System.Windows.MessageBox]::Show("Log exported to: $($config.LogPath)") 
+    })
+
 $ui.lstLogs.ItemsSource = $eventLog
 $ui.btnClearLogs.Add_Click({ $eventLog.Clear() })
 $ui.sldThresh.Add_ValueChanged({ $ui.lblThreshVal.Text = "$([Math]::Round($ui.sldThresh.Value)) ms" })
