@@ -11,7 +11,12 @@ if (-not ([System.Management.Automation.PSTypeName]'IconHelper').Type) {
 "@
 }
 
-$configPath = "$env:TEMP\NetPulse_Ultra_V2.json"
+$appDataFolder = Join-Path $env:APPDATA "NetPulse"
+if (-not (Test-Path $appDataFolder)) { New-Item -ItemType Directory -Path $appDataFolder -Force | Out-Null }
+$configPath = Join-Path $appDataFolder "NetPulse.json"
+
+$defaultLogPath = [System.IO.Path]::Combine([Environment]::GetFolderPath("Desktop"), "NetPulse_Log.csv")
+
 $config = if (Test-Path $configPath) { 
     try { Get-Content $configPath -Raw | ConvertFrom-Json } catch { $null }
 } 
@@ -20,11 +25,14 @@ if ($null -eq $config) {
     $config = [PSCustomObject]@{ 
         Host      = "8.8.8.8"
         Threshold = 100 
-        LogPath   = "$env:USERPROFILE\Desktop\NetPulse_Log.csv"
+        LogPath   = $defaultLogPath
         Interval  = 1000
         AutoStart = $false
     }
+    $config | ConvertTo-Json | Set-Content $configPath
 }
+
+if ([string]::IsNullOrWhiteSpace($config.LogPath)) { $config.LogPath = $defaultLogPath }
 
 $pingHistory = [System.Collections.Generic.Queue[int]]::new()
 $jitterHistory = [System.Collections.Generic.Queue[int]]::new()
@@ -36,7 +44,7 @@ $sessionStats = [PSCustomObject]@{
 [xml]$xaml = @"
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="NetPulse Ultra" Height="750" Width="1150" 
+        Title="NetPulse" Height="750" Width="1150" 
         WindowStartupLocation="CenterScreen" Background="Transparent" AllowsTransparency="True" WindowStyle="None"
         FontFamily="Segoe UI Variable Text">
     
@@ -63,7 +71,7 @@ $sessionStats = [PSCustomObject]@{
 
             <!-- Main Workspace -->
             <Grid Grid.Column="1" Margin="45,35">
-                <StackPanel VerticalAlignment="Top" HorizontalAlignment="Right" Orientation="Horizontal">
+                <StackPanel Panel.ZIndex="99" VerticalAlignment="Top" HorizontalAlignment="Right" Orientation="Horizontal">
                     <Button Name="btnMin" Content="&#xE949;" FontFamily="Segoe MDL2 Assets" Background="Transparent" BorderThickness="0" Foreground="#444" FontSize="18" Margin="0,0,15,0"/>
                 </StackPanel>
 
@@ -76,11 +84,11 @@ $sessionStats = [PSCustomObject]@{
                     </Grid.RowDefinitions>
 
                     <StackPanel Grid.Row="0">
-                        <TextBlock Text="Network Intelligence" FontSize="38" FontWeight="Bold" Foreground="White"/>
+                        <TextBlock Text="Network" FontSize="38" FontWeight="Bold" Foreground="White"/>
                         <StackPanel Orientation="Horizontal" Margin="2,5,0,0">
                              <TextBlock Name="lblHostSub" Text="Host: 8.8.8.8" Foreground="#666" FontSize="14" FontWeight="SemiBold"/>
                              <TextBlock Text=" • " Foreground="#333" Margin="8,0"/>
-                             <TextBlock Name="lblStatus" Text="CORE IDLE" Foreground="#0078D7" FontSize="14" FontWeight="Bold"/>
+                             <TextBlock Name="lblStatus" Text="IDLE" Foreground="#0078D7" FontSize="14" FontWeight="Bold"/>
                         </StackPanel>
                     </StackPanel>
 
@@ -169,7 +177,7 @@ $sessionStats = [PSCustomObject]@{
                 <!-- PAGE 2: LOGS -->
                 <Grid Name="pageLogs" Visibility="Collapsed">
                     <StackPanel>
-                        <TextBlock Text="Event Timeline" FontSize="34" Foreground="White" FontWeight="Bold"/>
+                        <TextBlock Text="Events" FontSize="34" Foreground="White" FontWeight="Bold"/>
                         <TextBlock Text="Detailed packet-by-packet analysis and anomaly detection." Foreground="#555" Margin="0,5,0,20"/>
                         <ListBox Name="lstLogs" Height="420" Background="#121218" Foreground="#888" BorderThickness="0" FontFamily="Consolas" FontSize="13">
                              <ListBox.ItemTemplate>
@@ -196,7 +204,7 @@ $sessionStats = [PSCustomObject]@{
 
                     <!-- Header Area -->
                     <StackPanel Grid.Row="0" Margin="0,0,0,25">
-                        <TextBlock Text="Diagnostic Context" FontSize="34" Foreground="White" FontWeight="Bold"/>
+                        <TextBlock Text="Diagnostics" FontSize="34" Foreground="White" FontWeight="Bold"/>
                         <TextBlock Text="Hardware telemetry and real-time socket analysis." Foreground="#555" FontSize="14"/>
                     </StackPanel>
 
@@ -298,7 +306,7 @@ $sessionStats = [PSCustomObject]@{
 
                 <!-- PAGE 4: SETTINGS -->
                 <StackPanel Name="pageSet" Visibility="Collapsed">
-                    <TextBlock Text="Engine Config" FontSize="34" Foreground="White" FontWeight="Bold" Margin="0,0,0,25"/>
+                    <TextBlock Text="Settings" FontSize="34" Foreground="White" FontWeight="Bold" Margin="0,0,0,25"/>
                     
                     <ScrollViewer Height="480" VerticalScrollBarVisibility="Auto">
                         <StackPanel Margin="0,0,15,0">
@@ -366,9 +374,22 @@ $ui = @{}
 
 function Add-LogEntry {
     param($Status, $Latency, $Color = "#888")
+    $path = $ui.editLogPath.Text
+    if ([string]::IsNullOrWhiteSpace($path)) {
+        $path = "$env:USERPROFILE\Desktop\NetPulse_Log.csv"
+    }
+    $dir = Split-Path $path -Parent
+    if (-not (Test-Path $dir)) {
+        try { 
+            New-Item -ItemType Directory -Path $dir -Force | Out-Null 
+        }
+        catch {
+            Write-Host "Failed to create directory: $dir" -ForegroundColor Red
+            return
+        }
+    }
     $timestamp = Get-Date -f "HH:mm:ss"
     $latText = if ($Latency -eq -1) { "LOST" } else { "$Latency ms" }
-    
     $entry = [PSCustomObject]@{
         Timestamp = (Get-Date -f "yyyy-MM-dd HH:mm:ss")
         Status    = $Status
@@ -376,23 +397,33 @@ function Add-LogEntry {
         Display   = "[$timestamp] $Status >> $latText"
         Color     = $Color
     }
-
     $window.Dispatcher.Invoke({
             $eventLog.Insert(0, $entry)
             if ($eventLog.Count -gt 500) { $eventLog.RemoveAt(500) }
         })
 
-    $entry | Select-Object Timestamp, Status, Latency | 
-    Export-Csv -Path $config.LogPath -Append -NoTypeInformation
+    try {
+        $entry | Select-Object Timestamp, Status, Latency | 
+        Export-Csv -Path $path -Append -NoTypeInformation
+    }
+    catch {
+        $ui.lblAlert.Text = "LOG ERROR: Check Path"
+    }
 }
 
 function Get-NetworkSummary {
     try {
-        $net = Get-NetIPConfiguration | Where-Object { $null -ne $_.IPv4Address } | Select-Object -First 1
-        $adapter = $net.NetAdapter
-        
-        $wmi = Get-CimInstance Win32_NetworkAdapterConfiguration | Where-Object { $_.InterfaceIndex -eq $net.InterfaceIndex }
+        $net = Get-NetIPConfiguration | Where-Object { 
+            $null -ne $_.IPv4Address -and 
+            $_.InterfaceDescription -notmatch "Hyper-V|Virtual|Pseudo|Loopback" -and
+            $null -ne $_.IPv4DefaultGateway
+        } | Select-Object -First 1
+        if ($null -eq $net) {
+            $net = Get-NetIPConfiguration | Where-Object { $null -ne $_.IPv4DefaultGateway } | Select-Object -First 1
+        }
 
+        $adapter = $net.NetAdapter
+        $wmi = Get-CimInstance Win32_NetworkAdapterConfiguration | Where-Object { $_.InterfaceIndex -eq $net.InterfaceIndex }
         $ui.txtLocalIP.Text = $net.IPv4Address.IPAddress
         $ui.txtGateway.Text = $net.IPv4DefaultGateway.NextHop
         $ui.txtDNS.Text = ($net.DNSServer.ServerAddresses -join "`n")
@@ -401,10 +432,8 @@ function Get-NetworkSummary {
         $ui.txtNetStatus.Text = $adapter.Status.ToString().ToUpper()
         $ui.txtLinkSpeed.Text = $adapter.LinkSpeed
         $ui.txtDHCPServer.Text = if ($wmi.DHCPEnabled) { $wmi.DHCPServer } else { "Static IP" }
-
         $ui.txtPublicIP.Text = "Resolving..."
         $ui.txtISPName.Text = "ISP: Querying..."
-
         $ispTask = {
             try {
                 $data = Invoke-RestMethod -Uri "http://ip-api.com/json/?fields=status,message,country,regionName,city,isp,query" -TimeoutSec 2
@@ -414,9 +443,7 @@ function Get-NetworkSummary {
                 return "ERROR"
             }
         }
-
         $result = Start-Job -ScriptBlock $ispTask | Wait-Job -Timeout 3 | Receive-Job
-
         if ($null -ne $result -and $result -ne "ERROR") {
             $ui.txtPublicIP.Text = $result.query
             $ui.txtISPName.Text = "ISP: $($result.isp)"
@@ -426,7 +453,6 @@ function Get-NetworkSummary {
             $ui.txtPublicIP.Text = "Offline/Timed Out"
             $ui.txtISPName.Text = "ISP: Connection Failed"
         }
-        
         $t = New-Object System.Windows.Threading.DispatcherTimer
         $t.Interval = [TimeSpan]::FromSeconds(1)
         $t.Add_Tick({
@@ -449,34 +475,26 @@ function Start-StabilityGraph {
     $latArr = $pingHistory.ToArray()
     $jitArr = $jitterHistory.ToArray()
     if ($latArr.Count -lt 2) { return }
-    
     $w = $ui.canvas.ActualWidth
     $h = $ui.canvas.ActualHeight
     $thresh = $ui.sldThresh.Value
-
     $maxVal = ($latArr + $jitArr + @($thresh) | Measure-Object -Maximum).Maximum
     $scaleY = $h / ($maxVal * 1.1)
-    
     $latPoints = New-Object System.Windows.Media.PointCollection
     $jitPoints = New-Object System.Windows.Media.PointCollection
     $step = $w / ($latArr.Count - 1)
-    
     for ($i = 0; $i -lt $latArr.Count; $i++) {
         $x = $i * $step
-        
         $val = $latArr[$i]
         $displayVal = if ($val -eq -1) { $maxVal } else { $val }
         $yLat = $h - ($displayVal * $scaleY)
         $latPoints.Add((New-Object System.Windows.Point($x, $yLat)))
-        
         $yJit = $h - ($jitArr[$i] * $scaleY)
         $jitPoints.Add((New-Object System.Windows.Point($x, $yJit)))
     }
-    
     $window.Dispatcher.Invoke({
             $ui.polyline.Points = $latPoints
             $ui.polylineJitter.Points = $jitPoints
-
             $ui.limitLine.Visibility = "Visible"
             $ui.limitLine.X1 = 0
             $ui.limitLine.X2 = $w
@@ -489,9 +507,7 @@ function Get-ActiveConnections {
         $conns = Get-NetTCPConnection -State Established -ErrorAction SilentlyContinue | 
         Select-Object -First 15 | 
         ForEach-Object {
-            
             $proc = Get-Process -Id $_.OwningProcess -ErrorAction SilentlyContinue
-            
             [PSCustomObject]@{
                 ProcessName = if ($proc) { $proc.Name.ToUpper() } else { "SYSTEM/PID:$($_.OwningProcess)" }
                 RemoteAddr  = "$($_.RemoteAddress):$($_.RemotePort)"
@@ -507,6 +523,30 @@ function Get-ActiveConnections {
     }
 }
 
+$notifyIcon = New-Object System.Windows.Forms.NotifyIcon
+$signature = @"
+[DllImport("shell32.dll", CharSet = CharSet.Auto)]
+public static extern IntPtr ExtractIcon(IntPtr hInst, string lpszExeFileName, int nIconIndex);
+"@
+Add-Type -MemberDefinition $signature -Name "IconExtractor" -Namespace "Win32" -PassThru
+$iconHandle = [Win32.IconExtractor]::ExtractIcon(0, "shell32.dll", 14)
+
+if ($iconHandle -ne [IntPtr]::Zero) {
+    $notifyIcon.Icon = [System.Drawing.Icon]::FromHandle($iconHandle)
+}
+else {
+    $notifyIcon.Icon = [System.Drawing.Icon]::ExtractAssociatedIcon((Get-Process -Id $PID).Path)
+}
+$notifyIcon.Text = "NetPulse"
+$notifyIcon.Visible = $false
+
+$notifyIcon.Add_DoubleClick({
+        $window.Show()
+        $window.WindowState = "Normal"
+        $window.Activate()
+        $notifyIcon.Visible = $false
+    })
+
 $pingProvider = New-Object System.Net.NetworkInformation.Ping
 $timer = New-Object System.Windows.Threading.DispatcherTimer
 $timer.Interval = [TimeSpan]::FromSeconds(1)
@@ -514,7 +554,6 @@ $prevSent = 0; $prevRecv = 0
 
 $timer.Add_Tick({
         $sessionStats.TotalPings++
-    
         try {
             $adapter = Get-NetAdapter | Where-Object { $_.Status -eq "Up" } | Select-Object -First 1
             $perf = Get-NetAdapterStatistics -Name $adapter.Name
@@ -525,17 +564,14 @@ $timer.Add_Tick({
             $script:prevSent = $perf.SentBytes; $script:prevRecv = $perf.ReceivedBytes
         }
         catch {}
-
         try {
             $reply = $pingProvider.Send($ui.editHost.Text, 900)
             if ($reply.Status -eq "Success") {
                 $ms = [int]$reply.RoundtripTime
                 $currentJitter = if ($sessionStats.LastLat -gt 0) { [Math]::Abs($ms - $sessionStats.LastLat) } else { 0 }
-
                 $pingHistory.Enqueue($ms)
                 $jitterHistory.Enqueue($currentJitter)
                 $ui.lblBigPing.Text = $ms
-            
                 if ($sessionStats.LastLat -gt 0) {
                     $jitter = [Math]::Abs($ms - $sessionStats.LastLat)
                     $sessionStats.Jitter = $jitter
@@ -544,7 +580,6 @@ $timer.Add_Tick({
                 $sessionStats.LastLat = $ms
                 if ($ms -gt $sessionStats.MaxLat) { $sessionStats.MaxLat = $ms }
                 if ($ms -lt $sessionStats.MinLat) { $sessionStats.MinLat = $ms }
-
                 if ($ms -gt $ui.sldThresh.Value) {
                     $ui.ringProgress.Stroke = [System.Windows.Media.Brushes]::Crimson
                     $ui.lblAlert.Text = "LATENCY SPIKE"
@@ -555,19 +590,15 @@ $timer.Add_Tick({
                     $ui.lblAlert.Text = ""
                     Add-LogEntry "OK" $ms "#666"
                 }
-
                 $quality = "EXCELLENT"; $qColor = "#44E811"
                 if ($ms -gt 100 -or $sessionStats.Jitter -gt 20) { $quality = "FAIR"; $qColor = "#FFB900" }
                 if ($ms -gt 250 -or $sessionStats.Jitter -gt 50) { $quality = "POOR"; $qColor = "#E81123" }
                 $ui.txtQuality.Text = $quality
                 $ui.txtQuality.Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString($qColor)
-            
-                $ui.lblStatus.Text = "CORE ACTIVE"
+                $ui.lblStatus.Text = "ACTIVE"
                 $ui.lblStatus.Foreground = [System.Windows.Media.Brushes]::LimeGreen
-
                 $pingHistory.Enqueue($ms)
                 if ($pingHistory.Count -gt 25) { [void]$pingHistory.Dequeue() }
-            
                 $ui.txtMin.Text = "$($sessionStats.MinLat)ms"
                 $ui.txtMax.Text = "$($sessionStats.MaxLat)ms"
                 $ui.txtLoss.Text = $sessionStats.FailedPings
@@ -584,7 +615,6 @@ $timer.Add_Tick({
             $pingHistory.Enqueue(-1) 
             $jitterHistory.Enqueue(0)
         }
-    
         $uptime = 100 - ($sessionStats.FailedPings / $sessionStats.TotalPings * 100)
         $ui.txtUptime.Text = "Stability: $([Math]::Round($uptime, 2))% | Packets: $($sessionStats.TotalPings)"
     })
@@ -603,7 +633,7 @@ $ui.btnAction.Add_Click({
             $timer.Stop()
             $ui.btnAction.Content = "START MONITORING"
             $ui.btnAction.Background = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#0078D7")
-            $ui.lblStatus.Text = "CORE IDLE"
+            $ui.lblStatus.Text = "IDLE"
             $ui.lblStatus.Foreground = [System.Windows.Media.Brushes]::Gray
         }
         else { 
@@ -620,24 +650,20 @@ $ui.navInfo.Add_Click({ Get-NetworkSummary; Get-ActiveConnections; $ui.pageInfo.
 $ui.navSet.Add_Click({ $ui.pageSet.Visibility = "Visible"; $ui.pageDash.Visibility = $ui.pageLogs.Visibility = $ui.pageInfo.Visibility = "Collapsed" })
 
 $ui.btnSave.Add_Click({
-        if (-not (Get-Member -InputObject $config -Name "Interval")) {
-            $config | Add-Member -MemberType NoteProperty -Name "Interval" -Value 1000
+        $currentPath = $ui.editLogPath.Text
+        if (Test-Path $currentPath -PathType Container) {
+            $currentPath = Join-Path $currentPath "NetPulse_Log.csv"
+            $ui.editLogPath.Text = $currentPath
         }
-        if (-not (Get-Member -InputObject $config -Name "AutoStart")) {
-            $config | Add-Member -MemberType NoteProperty -Name "AutoStart" -Value $false
-        }
-
         $config.Host = $ui.editHost.Text
         $config.Threshold = $ui.sldThresh.Value
         $config.Interval = [int]$ui.editInterval.Text
         $config.AutoStart = $ui.chkAutoStart.IsChecked
-        $config.LogPath = $ui.editLogPath.Text
-
+        $config.LogPath = $currentPath
         $timer.Interval = [TimeSpan]::FromMilliseconds($config.Interval)
-    
         $config | ConvertTo-Json | Set-Content $configPath
         $ui.lblHostSub.Text = "Host: $($ui.editHost.Text)"
-        [System.Windows.MessageBox]::Show("Configuration saved successfully.")
+        [System.Windows.MessageBox]::Show("Configuration saved to: $currentPath")
     })
 
 if ($ui.editInterval.Text -match '^\d+$') {
@@ -664,9 +690,30 @@ $ui.btnExport.Add_Click({
 
 $ui.lstLogs.ItemsSource = $eventLog
 $ui.btnClearLogs.Add_Click({ $eventLog.Clear() })
-$ui.sldThresh.Add_ValueChanged({ $ui.lblThreshVal.Text = "$([Math]::Round($ui.sldThresh.Value)) ms" })
-$ui.btnExit.Add_Click({ $window.Close() })
-$ui.btnMin.Add_Click({ $window.WindowState = "Minimized" })
+$ui.sldThresh.Add_ValueChanged({ 
+        $ui.lblThreshVal.Text = "$([Math]::Round($ui.sldThresh.Value)) ms"
+    })
+    
+$ui.btnExit.Add_Click({
+        $timer.Stop()
+        $notifyIcon.Visible = $false
+        if ($iconHandle) { [IconHelper]::DestroyIcon($iconHandle) }
+        $notifyIcon.Dispose()
+        $window.Close()
+        Stop-Process -Id $PID 
+    })
+
+$ui.btnMin.Add_Click({
+        if ($ui.chkMinimizeToTray.IsChecked -eq $true) {
+            $window.Hide()
+            $notifyIcon.Visible = $true
+            $notifyIcon.ShowBalloonTip(2000, "NetPulse", "App minimized to tray.", "Info")
+        }
+        else {
+            $window.WindowState = "Minimized"
+        }
+    })
+
 $window.Add_MouseLeftButtonDown({ $window.DragMove() })
 
 $ui.btnFlushDNS.Add_Click({ 
@@ -681,6 +728,17 @@ $ui.btnResetStack.Add_Click({
             [System.Windows.MessageBox]::Show("Reset complete. Restart highly recommended.")
         }
     })
+$ui.editLogPath.Text = $config.LogPath
+$ui.editHost.Text = $config.Host
+$ui.sldThresh.Value = $config.Threshold
+$ui.editInterval.Text = $config.Interval
+$ui.chkAutoStart.IsChecked = $config.AutoStart
+
+if ($config.AutoStart) {
+    $timer.Start()
+    $ui.btnAction.Content = "STOP MONITORING"
+    $ui.btnAction.Background = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#1A1A1F")
+}
 
 Get-NetworkSummary
-$window.ShowDialog()
+$window.ShowDialog() | Out-Null
