@@ -53,7 +53,10 @@ Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase, Sys
                 <Grid>
                     <StackPanel Orientation="Horizontal">
                         <Ellipse Name="statusDot" Width="10" Height="10" Fill="#FF5555" Margin="0,0,10,0"/>
-                        <TextBlock Name="lblGlobalHost" Text="REMOTE HOST: OFFLINE" FontWeight="Bold" FontSize="14" VerticalAlignment="Center"/>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Name="lblGlobalHost" Text="REMOTE HOST: DISCONNECTED" FontWeight="Bold" FontSize="14"/>
+                            <TextBlock Name="lblSubStatus" Text="Awaiting initial synchronization..." FontSize="10" Foreground="#555"/>
+                        </StackPanel>
                     </StackPanel>
                     <Button Name="btnGlobalSync" HorizontalAlignment="Right" Content="SYNCHRONIZE ALL" Width="160" Height="35" Background="#007ACC" Foreground="White" BorderThickness="0" FontWeight="Bold"/>
                 </Grid>
@@ -150,14 +153,58 @@ Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase, Sys
 
                 <TabItem>
                     <Grid Margin="30">
-                        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-                        <TextBlock Text="Critical System Events (24H)" FontSize="24" FontWeight="Bold" Margin="0,0,0,20"/>
-                        <Border Grid.Row="1" Background="#050505" CornerRadius="10" Padding="15" BorderBrush="#1A1A1D" BorderThickness="1">
-                            <DataGrid Name="dgEvents" AutoGenerateColumns="False" Background="Transparent" Foreground="#888" BorderThickness="0" IsReadOnly="True">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/> <RowDefinition Height="Auto"/> <RowDefinition Height="Auto"/> <RowDefinition Height="*"/>    </Grid.RowDefinitions>
+
+                        <StackPanel Grid.Row="0" Margin="0,0,0,20">
+                            <TextBlock Text="System Forensics &amp; Audit" FontSize="28" FontWeight="ExtraBold" Foreground="White"/>
+                            <TextBlock Text="Real-time event analysis across System, Security, and Application logs." Foreground="#666"/>
+                        </StackPanel>
+
+                        <UniformGrid Grid.Row="1" Columns="4" Height="100" Margin="0,0,0,20">
+                            <Border Background="#1A0A0A" BorderBrush="#FF4444" BorderThickness="1" CornerRadius="10" Margin="5">
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="CRITICAL ERRORS" Foreground="#FF4444" FontSize="10" FontWeight="Bold" HorizontalAlignment="Center"/>
+                                    <TextBlock Name="cntCritical" Text="0" FontSize="32" Foreground="White" HorizontalAlignment="Center" FontWeight="Bold"/>
+                                    <TextBlock Text="System Stability" FontSize="9" Foreground="#444444" HorizontalAlignment="Center"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Background="#1A150A" BorderBrush="#FFA500" BorderThickness="1" CornerRadius="10" Margin="5">
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="AUTH FAILURES" Foreground="#FFA500" FontSize="10" FontWeight="Bold" HorizontalAlignment="Center"/>
+                                    <TextBlock Name="cntSecurity" Text="0" FontSize="32" Foreground="White" HorizontalAlignment="Center" FontWeight="Bold"/>
+                                    <TextBlock Text="Security Log 4625" FontSize="9" Foreground="#444444" HorizontalAlignment="Center"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Background="#0A121A" BorderBrush="#007ACC" BorderThickness="1" CornerRadius="10" Margin="5">
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="DISK WARNINGS" Foreground="#007ACC" FontSize="10" FontWeight="Bold" HorizontalAlignment="Center"/>
+                                    <TextBlock Name="cntDisk" Text="0" FontSize="32" Foreground="White" HorizontalAlignment="Center" FontWeight="Bold"/>
+                                    <TextBlock Text="I/O &amp; Controller" FontSize="9" Foreground="#444444" HorizontalAlignment="Center"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Background="#0A1A0F" BorderBrush="#2ECC71" BorderThickness="1" CornerRadius="10" Margin="5">
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="APP CRASHES" Foreground="#2ECC71" FontSize="10" FontWeight="Bold" HorizontalAlignment="Center"/>
+                                    <TextBlock Name="cntApp" Text="0" FontSize="32" Foreground="White" HorizontalAlignment="Center" FontWeight="Bold"/>
+                                    <TextBlock Text="Faulting Modules" FontSize="9" Foreground="#444444" HorizontalAlignment="Center"/>
+                                </StackPanel>
+                            </Border>
+                        </UniformGrid>
+
+                        <Border Grid.Row="2" Background="#111" CornerRadius="5" Padding="15,10" Margin="5,0,5,15" BorderBrush="#222" BorderThickness="1">
+                            <DockPanel>
+                                <TextBlock Text="🔍 FILTER LOGS:" VerticalAlignment="Center" Margin="0,0,15,0" Foreground="#007ACC" FontWeight="Bold" FontSize="11"/>
+                                <TextBox Name="txtEventFilter" VerticalContentAlignment="Center" Background="Transparent" Foreground="White" BorderThickness="0" CaretBrush="White"/>
+                            </DockPanel>
+                        </Border>
+
+                        <Border Grid.Row="3" Background="#050505" CornerRadius="10" Padding="10" BorderBrush="#1A1A1D" BorderThickness="1">
+                            <DataGrid Name="dgEvents" AutoGenerateColumns="False" Background="Transparent" Foreground="#BBB" BorderThickness="0" IsReadOnly="True" RowHeight="35">
                                 <DataGrid.Columns>
-                                    <DataGridTextColumn Header="TIME" Binding="{Binding Time}" Width="150"/>
-                                    <DataGridTextColumn Header="ID" Binding="{Binding ID}" Width="60"/>
-                                    <DataGridTextColumn Header="SOURCE" Binding="{Binding Source}" Width="150"/>
+                                    <DataGridTextColumn Header="TIME" Binding="{Binding Time}" Width="140"/>
+                                    <DataGridTextColumn Header="ID" Binding="{Binding ID}" Width="70"/>
+                                    <DataGridTextColumn Header="SOURCE" Binding="{Binding Source}" Width="180"/>
                                     <DataGridTextColumn Header="MESSAGE" Binding="{Binding Message}" Width="*"/>
                                 </DataGrid.Columns>
                             </DataGrid>
@@ -167,20 +214,65 @@ Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase, Sys
 
                 <TabItem>
                     <Grid Margin="30">
-                        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                        <TextBlock Text="Active Processes" FontSize="24" FontWeight="Bold" Margin="0,0,0,20"/>
-                        <DataGrid Name="dgProcesses" Grid.Row="1" AutoGenerateColumns="False" IsReadOnly="True">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/> <RowDefinition Height="Auto"/> <RowDefinition Height="Auto"/> <RowDefinition Height="*"/>    <RowDefinition Height="Auto"/> </Grid.RowDefinitions>
+
+                        <StackPanel Grid.Row="0" Margin="0,0,0,20">
+                            <TextBlock Text="Process Intelligence" FontSize="28" FontWeight="ExtraBold" Foreground="White"/>
+                            <TextBlock Text="Real-time telemetry of active execution threads and resource consumption." Foreground="#666"/>
+                        </StackPanel>
+
+                        <UniformGrid Grid.Row="1" Columns="4" Height="100" Margin="0,0,0,20">
+                            <Border Background="#0A121A" BorderBrush="#007ACC" BorderThickness="1" CornerRadius="10" Margin="5">
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="TOTAL PROCESSES" Foreground="#007ACC" FontSize="10" FontWeight="Bold" HorizontalAlignment="Center"/>
+                                    <TextBlock Name="cntTotalProc" Text="0" FontSize="32" Foreground="White" HorizontalAlignment="Center" FontWeight="Bold"/>
+                                    <TextBlock Text="Active Threads" FontSize="9" Foreground="#444444" HorizontalAlignment="Center"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Background="#1A0A0A" BorderBrush="#FF4444" BorderThickness="1" CornerRadius="10" Margin="5">
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="HIGH CPU LOAD" Foreground="#FF4444" FontSize="10" FontWeight="Bold" HorizontalAlignment="Center"/>
+                                    <TextBlock Name="cntHighCPU" Text="0" FontSize="32" Foreground="White" HorizontalAlignment="Center" FontWeight="Bold"/>
+                                    <TextBlock Text="> 20% Utilization" FontSize="9" Foreground="#444444" HorizontalAlignment="Center"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Background="#1A150A" BorderBrush="#FFA500" BorderThickness="1" CornerRadius="10" Margin="5">
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="SYSTEM SHELLS" Foreground="#FFA500" FontSize="10" FontWeight="Bold" HorizontalAlignment="Center"/>
+                                    <TextBlock Name="cntShells" Text="0" FontSize="32" Foreground="White" HorizontalAlignment="Center" FontWeight="Bold"/>
+                                    <TextBlock Text="PS / CMD / Bash" FontSize="9" Foreground="#444444" HorizontalAlignment="Center"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Background="#0A1A0F" BorderBrush="#2ECC71" BorderThickness="1" CornerRadius="10" Margin="5">
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="ORPHANED/SUSP" Foreground="#2ECC71" FontSize="10" FontWeight="Bold" HorizontalAlignment="Center"/>
+                                    <TextBlock Name="cntSuspicious" Text="0" FontSize="32" Foreground="White" HorizontalAlignment="Center" FontWeight="Bold"/>
+                                    <TextBlock Text="Non-Responsive" FontSize="9" Foreground="#444444" HorizontalAlignment="Center"/>
+                                </StackPanel>
+                            </Border>
+                        </UniformGrid>
+
+                        <Border Grid.Row="2" Background="#111" CornerRadius="5" Padding="15,10" Margin="5,0,5,15" BorderBrush="#222" BorderThickness="1">
+                            <DockPanel>
+                                <TextBlock Text="🔍 SEARCH PROCESS:" VerticalAlignment="Center" Margin="0,0,15,0" Foreground="#007ACC" FontWeight="Bold" FontSize="11"/>
+                                <TextBox Name="txtProcFilter" VerticalContentAlignment="Center" Background="Transparent" Foreground="White" BorderThickness="0" CaretBrush="White"/>
+                            </DockPanel>
+                        </Border>
+
+                        <DataGrid Name="dgProcesses" Grid.Row="3" AutoGenerateColumns="False" IsReadOnly="True" Background="Transparent" BorderThickness="0">
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="PID" Binding="{Binding Id}" Width="80"/>
-                                <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="250"/>
+                                <DataGridTextColumn Header="NAME" Binding="{Binding Name}" Width="250"/>
                                 <DataGridTextColumn Header="CPU %" Binding="{Binding CPU}" Width="100"/>
-                                <DataGridTextColumn Header="Mem (MB)" Binding="{Binding Mem}" Width="100"/>
-                                <DataGridTextColumn Header="Title" Binding="{Binding Title}" Width="*"/>
+                                <DataGridTextColumn Header="MEM (MB)" Binding="{Binding Mem}" Width="100"/>
+                                <DataGridTextColumn Header="PATH" Binding="{Binding Path}" Width="*"/>
                             </DataGrid.Columns>
                         </DataGrid>
-                        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,15,0,0">
-                            <Button Name="btnRefreshProc" Content="REFRESH" Width="120" Height="40" Margin="0,0,10,0"/>
-                            <Button Name="btnKill" Content="TERMINATE" Width="120" Height="40" Background="#B71C1C" Foreground="White"/>
+
+                        <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,15,0,0">
+                            <Button Name="btnRefreshProc" Content="REFRESH" Width="120" Height="40" Margin="0,0,10,0" Background="#1A1A25" Foreground="White"/>
+                            <Button Name="btnKill" Content="TERMINATE PROCESS" Width="160" Height="40" Background="#B71C1C" Foreground="White" FontWeight="Bold" BorderThickness="0"/>
                         </StackPanel>
                     </Grid>
                 </TabItem>
@@ -356,7 +448,7 @@ function Get-Cred {
     return New-Object System.Management.Automation.PSCredential($txtUser.Text, $sec) 
 }
 
-function Exec-R ($SB, $Param) {
+function Invoke-RExec ($SB, $Param) {
     try {
         $mainStatus.Text = "Connecting to $($txtHost.Text)..."
         $res = Invoke-Command -ComputerName $txtHost.Text -Credential (Get-Cred) -ScriptBlock $SB -ArgumentList $Param -ErrorAction Stop
@@ -367,7 +459,7 @@ function Exec-R ($SB, $Param) {
     catch {
         if ($_.Exception.Message -like "*TrustedHosts*") {
             if (Add-ToTrustedHosts -IP $txtHost.Text) {
-                return Exec-R $SB $Param 
+                return Invoke-RExec $SB $Param 
             }
         }
         $mainStatus.Text = "Connection Failed: $($_.Exception.Message)"
@@ -400,7 +492,8 @@ function Add-ToTrustedHosts {
 $nodes = @(
     "lblNodeName", "lblNodeIP", "dashCPU", "pbCPU", "dashRAM", "pbRAM", 
     "dashDisk", "pbDisk", "dashPing", "stFW", "stAV", "stBit", 
-    "stGW", "stDNS", "stUser", "stLogon", "stIdle", "dgEvents", "txtStatus", "elStatus"
+    "stGW", "stDNS", "stUser", "stLogon", "stIdle", "dgEvents", "txtStatus", "elStatus",
+    "cntCritical", "cntSecurity", "cntDisk", "cntApp", "txtEventFilter"
 )
 
 foreach ($node in $nodes) {
@@ -420,12 +513,29 @@ $navConfig.Add_Click({ $MainTabs.SelectedIndex = 9 })
 
 $btnGlobalSync.Add_Click({
         $target = $txtHost.Text
+        $statusDot.Fill = [System.Windows.Media.Brushes]::Orange
+        $lblGlobalHost.Text = "CONNECTING: $target..."
+        $lblGlobalHost.Foreground = [System.Windows.Media.Brushes]::Orange
+        $mainStatus.Text = "Establishing WinRM Session..."
         $txtStatus.Text = "POLLING..."
         $elStatus.Fill = [System.Windows.Media.Brushes]::Orange
         $p = Test-Connection -ComputerName $target -Count 1 -ErrorAction SilentlyContinue
         $latency = if ($p) { $p.ResponseTime } else { 999 }
-        $data = Exec-R {
+        $data = Invoke-RExec {
             try {
+                $comp = Get-CimInstance Win32_OperatingSystem
+                $sysLogs = Get-WinEvent -FilterHashtable @{LogName = 'System'; Level = 1, 2; StartTime = (Get-Date).AddDays(-1) } -ErrorAction SilentlyContinue
+                $secLogs = Get-WinEvent -FilterHashtable @{LogName = 'Security'; Id = 4625; StartTime = (Get-Date).AddDays(-1) } -ErrorAction SilentlyContinue
+                $diskLogs = Get-WinEvent -FilterHashtable @{LogName = 'System'; ProviderName = 'Disk'; StartTime = (Get-Date).AddDays(-7) } -ErrorAction SilentlyContinue
+                $appLogs = Get-WinEvent -FilterHashtable @{LogName = 'Application'; Level = 2 } -MaxEvents 50 -ErrorAction SilentlyContinue
+                $gridItems = $sysLogs | ForEach-Object {
+                    [PSCustomObject]@{
+                        Time    = $_.TimeCreated.ToString("HH:mm:ss")
+                        ID      = $_.Id
+                        Source  = $_.ProviderName
+                        Message = $_.Message.Replace("`r", "").Replace("`n", " ").Substring(0, [math]::Min($_.Message.Length, 150)) + "..."
+                    }
+                }
                 $os = Get-CimInstance Win32_OperatingSystem -ErrorAction Stop
                 $cpu = Get-CimInstance Win32_Processor
                 $disk = Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='C:'"
@@ -435,7 +545,7 @@ $btnGlobalSync.Add_Click({
                 $u = "None"; $l = "N/A"; $i = "N/A"
                 $q = quser 2>$null
                 if ($q) { $f = $q[1] -split '\s+'; $u = $f[1]; $l = "$($f[5]) $($f[6])"; $i = $f[7] }
-                $ev = Get-WinEvent -FilterHashtable @{LogName = 'System'; Level = 1, 2 } -MaxEvents 10 -ErrorAction SilentlyContinue | ForEach-Object {
+                $ev = Get-WinEvent -FilterHashtable @{LogName = 'System'; Level = 1, 2 } -MaxEvents 16 -ErrorAction SilentlyContinue | ForEach-Object {
                     [PSCustomObject]@{ Time = $_.TimeCreated.ToString("HH:mm"); ID = $_.Id; Source = $_.ProviderName; Message = $_.Message.Trim() }
                 }
                 return @{
@@ -446,7 +556,14 @@ $btnGlobalSync.Add_Click({
                     GW = $net.IPv4DefaultGateway.NextHop; DNS = $net.DNSServer.ServerAddresses[0];
                     FW = (Get-NetFirewallProfile -Profile Domain).Enabled;
                     AV = $mp.RealTimeProtectionEnabled; Bit = ($bit.ProtectionStatus -eq "On");
-                    User = $u; Logon = $l; Idle = $i; Events = $ev; Success = $true
+                    User = $u; Logon = $l; Idle = $i; Events = $ev; Success = $true;
+                    Event = $gridItems;
+                    CritCount = ($sysLogs | Where-Object { $_.Level -eq 1 }).Count;
+                    SecCount = $secLogs.Count;
+                    DiskCount = $diskLogs.Count;
+                    AppCount = $appLogs.Count;
+                    HostName = $env:COMPUTERNAME;
+                    OS = $comp.Caption;
                 }
             }
             catch { return @{ Success = $false; Msg = $_.Exception.Message } }
@@ -463,27 +580,88 @@ $btnGlobalSync.Add_Click({
             $stBit.Text = if ($data.Bit) { "ENCRYPTED" }else { "PLAIN" }; $stBit.Foreground = if ($data.Bit) { "#2ECC71" }else { "#E65100" }
             $stGW.Text = $data.GW; $stDNS.Text = $data.DNS
             $stUser.Text = $data.User; $stLogon.Text = "Logon: $($data.Logon)"; $stIdle.Text = "Idle: $($data.Idle)"
-            $dgEvents.ItemsSource = $data.Events
+            if ($data.Events) {
+                $dgEvents.ItemsSource = @($data.Events)
+                $list = New-Object System.Collections.Generic.List[PSObject]
+                foreach ($e in $data.Events) { $list.Add($e) }
+                $dgEvents.ItemsSource = $list
+            }
+            else {
+                $dgEvents.ItemsSource = @()
+            }
+            $cntCritical.Text = $data.CritCount
+            $cntSecurity.Text = $data.SecCount
+            $cntDisk.Text = $data.DiskCount
+            $cntApp.Text = $data.AppCount
+            $cntCritical.Foreground = if ([int]$data.CritCount -gt 0) { [System.Windows.Media.Brushes]::Red } else { [System.Windows.Media.Brushes]::White }
+            $cntSecurity.Foreground = if ([int]$data.SecCount -gt 5) { [System.Windows.Media.Brushes]::Orange } else { [System.Windows.Media.Brushes]::White }
             $txtStatus.Text = "ONLINE"; $elStatus.Fill = [System.Windows.Media.Brushes]::LimeGreen
+            $statusDot.Fill = [System.Windows.Media.Brushes]::LimeGreen
+            $lblGlobalHost.Text = "REMOTE HOST: $($data.HostName.ToUpper())"
+            $lblGlobalHost.Foreground = [System.Windows.Media.Brushes]::White
+            $lblSubStatus.Text = "Online | User: $($data.User) | OS: $($data.OS)"
+            $mainStatus.Text = "Synchronization Successful."
         }
         else {
             $txtStatus.Text = "ERROR"; $elStatus.Fill = [System.Windows.Media.Brushes]::Red
             $lblNodeName.Text = "CONNECTION FAILED"
+            $statusDot.Fill = [System.Windows.Media.Brushes]::Red
+            $lblGlobalHost.Text = "REMOTE HOST: OFFLINE"
+            $lblGlobalHost.Foreground = [System.Windows.Media.Brushes]::Red
+            $lblSubStatus.Text = "Connection failed. Check WinRM/Credentials."
+            $mainStatus.Text = "Sync Failed."
         }
     })
 
 $btnRefreshProc.Add_Click({
-        $pList = Exec-R { Get-Process | Select-Object Id, ProcessName, @{N = 'CPU'; E = { [math]::Round($_.CPU, 1) } }, @{N = 'WS'; E = { [math]::Round($_.WorkingSet / 1MB, 1) } }, MainWindowTitle }
-        $dgProcesses.ItemsSource = foreach ($p in $pList) { [PSCustomObject]@{ Id = $p.Id; Name = $p.ProcessName; CPU = $p.CPU; Mem = $p.WS; Title = $p.MainWindowTitle } }
+        $procData = Invoke-RExec {
+            $allProcs = Get-Process | Select-Object Id, ProcessName, CPU, WorkingSet, Path, Responding
+            $total = $allProcs.Count
+            $highUsage = ($allProcs | Where-Object { $_.CPU -gt 500 -or ($_.WorkingSet / 1MB) -gt 500 }).Count
+            $shells = ($allProcs | Where-Object { $_.ProcessName -match "powershell|pwsh|cmd|bash|wsl" }).Count
+            $orphans = ($allProcs | Where-Object { $_.Responding -eq $false }).Count
+            $gridItems = $allProcs | ForEach-Object {
+                [PSCustomObject]@{
+                    Id   = $_.Id
+                    Name = $_.ProcessName.ToUpper()
+                    CPU  = if ($_.CPU) { [math]::Round($_.CPU, 2) } else { 0 }
+                    Mem  = [math]::Round($_.WorkingSet / 1MB, 2)
+                    Path = $_.Path
+                }
+            }
+            return @{
+                Items   = $gridItems
+                Total   = $total
+                HighCPU = $highUsage
+                Shells  = $shells
+                Orphans = $orphans
+            }
+        }
+        if ($procData) {
+            $list = New-Object System.Collections.Generic.List[PSObject]
+            foreach ($p in $procData.Items) { $list.Add($p) }
+            $dgProcesses.ItemsSource = $list
+            $cntTotalProc.Text = [string]$procData.Total
+            $cntHighCPU.Text = [string]$procData.HighCPU
+            $cntShells.Text = [string]$procData.Shells
+            $cntSuspicious.Text = [string]$procData.Orphans
+            if ([int]$procData.HighCPU -gt 0) {
+                $cntHighCPU.Foreground = [System.Windows.Media.Brushes]::Red
+            }
+            else {
+                $cntHighCPU.Foreground = [System.Windows.Media.Brushes]::White
+            }
+        }
     })
+
 $btnKill.Add_Click({
-        if ($dgProcesses.SelectedItem) { Exec-R { param($id) Stop-Process -Id $id -Force } $dgProcesses.SelectedItem.Id; $btnRefreshProc.RaiseEvent((New-Object RoutedEventArgs([Button]::ClickEvent))) }
+        if ($dgProcesses.SelectedItem) { Invoke-RExec { param($id) Stop-Process -Id $id -Force } $dgProcesses.SelectedItem.Id; $btnRefreshProc.RaiseEvent((New-Object System.Windows.RoutedEventArgs([System.Windows.Controls.Button]::ClickEvent))) }
     })
 
 $btnListFiles.Add_Click({
         $path = $txtFilePath.Text
         $mainStatus.Text = "Fetching file list..."
-        $results = Exec-R { 
+        $results = Invoke-RExec { 
             param($p) 
             Get-ChildItem -Path $p -ErrorAction SilentlyContinue | ForEach-Object { 
                 [PSCustomObject]@{ 
@@ -503,9 +681,37 @@ $btnListFiles.Add_Click({
         }
     })
 
-$btnNetstat.Add_Click({ $txtNetOutput.Text = Exec-R { netstat -ano | Select-Object -First 50 | Out-String } })
+$txtEventFilter.Add_TextChanged({
+        $view = [System.Windows.Data.CollectionViewSource]::GetDefaultView($dgEvents.ItemsSource)
+        if ($view) {
+            $searchTerm = $txtEventFilter.Text.ToLower()
+            $view.Filter = [Predicate[Object]] {
+                param($item)
+                if ([string]::IsNullOrWhiteSpace($searchTerm)) { return $true }
+                return ($item.Message -like "*$searchTerm*") -or 
+                ($item.Source -like "*$searchTerm*") -or 
+                ($item.ID.ToString() -like "*$searchTerm*")
+            }
+            $view.Refresh()
+        }
+    })
 
-$btnIPConfig.Add_Click({ $txtNetOutput.Text = Exec-R { ipconfig /all | Out-String } })
+$txtProcFilter.Add_TextChanged({
+        $view = [System.Windows.Data.CollectionViewSource]::GetDefaultView($dgProcesses.ItemsSource)
+        if ($view) {
+            $searchTerm = $txtProcFilter.Text.ToLower()
+            $view.Filter = [Predicate[Object]] {
+                param($item)
+                if ([string]::IsNullOrWhiteSpace($searchTerm)) { return $true }
+                return ($item.Name -like "*$searchTerm*") -or ($item.Id.ToString() -eq $searchTerm)
+            }
+            $view.Refresh()
+        }
+    })
+
+$btnNetstat.Add_Click({ $txtNetOutput.Text = Invoke-RExec { netstat -ano | Select-Object -First 50 | Out-String } })
+
+$btnIPConfig.Add_Click({ $txtNetOutput.Text = Invoke-RExec { ipconfig /all | Out-String } })
 
 $btnPanicMsg.Add_Click({
         $customMessage = $txtCustomMsg.Text
@@ -513,7 +719,7 @@ $btnPanicMsg.Add_Click({
             $mainStatus.Text = "Error: Message cannot be empty."
             return
         }
-        Exec-R { 
+        Invoke-RExec { 
             param($msg) 
             msg * "$msg" 
         } $customMessage
@@ -521,7 +727,7 @@ $btnPanicMsg.Add_Click({
     })
 
 $btnBlockInput.Add_Click({
-        Exec-R {
+        Invoke-RExec {
             $code = '[DllImport("user32.dll")] public static extern bool BlockInput(bool fBlockIt);'
             $type = Add-Type -MemberDefinition $code -Name "Win32BlockInput" -Namespace Win32Functions -PassThru
             $type::BlockInput($true)
@@ -531,7 +737,7 @@ $btnBlockInput.Add_Click({
     })
 
 $btnLock.Add_Click({
-        Exec-R {
+        Invoke-RExec {
             $sessionInfo = quser | Select-String ">"
             if ($sessionInfo) {
                 $sessionID = ($sessionInfo -split '\s+')[2]
@@ -546,7 +752,7 @@ $btnLock.Add_Click({
     })
 
 $btnLogoff.Add_Click({
-        Exec-R {
+        Invoke-RExec {
             $query = quser
             $session = $query | Select-String ">"
             if ($session) {
@@ -562,7 +768,7 @@ $btnLogoff.Add_Click({
     })
 
 $btnBlackout.Add_Click({
-        Exec-R {
+        Invoke-RExec {
             Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
             Add-Type -AssemblyName System.Windows.Forms
             $form = New-Object Windows.Forms.Form
@@ -576,11 +782,11 @@ $btnBlackout.Add_Click({
         }
     })
 
-$btnRestart.Add_Click({ Exec-R { Restart-Computer -Force } })
+$btnRestart.Add_Click({ Invoke-RExec { Restart-Computer -Force } })
 
 $btnBuzzer.Add_Click({
-        Exec-R {
-            $sessionID = (quser | Select-String ">" | ForEach-Object { ($_ -split '\s+')[2] })
+        Invoke-RExec {
+            #$sessionID = (quser | Select-String ">" | ForEach-Object { ($_ -split '\s+')[2] })
             $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-WindowStyle Hidden -Command [console]::Beep(1000,1000)"
             $taskName = "RemoteBuzzer_$(Get-Random)"
             Register-ScheduledTask -TaskName $taskName -Action $action -Force -Settings (New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries) | Out-Null
@@ -591,7 +797,7 @@ $btnBuzzer.Add_Click({
     })
 
 $btnDisableTools.Add_Click({
-        Exec-R {
+        Invoke-RExec {
             $path = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Policies\System"
             if (-not (Test-Path $path)) { New-Item $path -Force }
             Set-ItemProperty $path -Name "DisableTaskMgr" -Value 1
@@ -603,17 +809,17 @@ $btnDisableTools.Add_Click({
     })
 
 $btnEnableTools.Add_Click({
-        Exec-R {
+        Invoke-RExec {
             Set-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Policies\System" -Name "DisableTaskMgr" -Value 0
             Set-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Policies\System" -Name "DisableRegistryTools" -Value 0
             Set-ItemProperty "HKCU:\Software\Policies\Microsoft\Windows\System" -Name "DisableCMD" -Value 0
         }
     })
 
-$btnRunShell.Add_Click({ $cmd = $txtCommand.Text; $txtOutput.Text = Exec-R { param($c) Invoke-Expression $c 2>&1 | Out-String } $cmd })
+$btnRunShell.Add_Click({ $cmd = $txtCommand.Text; $txtOutput.Text = Invoke-RExec { param($c) Invoke-Expression $c 2>&1 | Out-String } $cmd })
 
 $btnSvcRefresh.Add_Click({
-        $svcs = Exec-R { Get-Service | Select-Object Name, DisplayName, Status }
+        $svcs = Invoke-RExec { Get-Service | Select-Object Name, DisplayName, Status }
         $dgServices.ItemsSource = foreach ($s in $svcs) { [PSCustomObject]@{ Name = $s.Name; Display = $s.DisplayName; Status = $s.Status.ToString() } }
     })
 
