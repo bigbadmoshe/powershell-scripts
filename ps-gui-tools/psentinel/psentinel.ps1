@@ -41,6 +41,7 @@ Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase, Sys
                     <Button Name="navSec"  Style="{StaticResource NavBtn}" Content="🛡️ Security Center"/>
                     <Button Name="navSched" Style="{StaticResource NavBtn}" Content="⏳ Task Scheduler"/>
                     <Button Name="navSvc"  Style="{StaticResource NavBtn}" Content="🔧 System Services"/>
+                    <Button Name="navSoftware" Style="{StaticResource NavBtn}" Content="📦 Software Audit"/>
                     <Button Name="navScreen" Style="{StaticResource NavBtn}" Content="📸 Remote View"/>
                     <Button Name="navCons" Style="{StaticResource NavBtn}" Content="🐚 PowerShell Console"/>
                     <Separator Background="#1A1A1D" Margin="15,10"/>
@@ -515,6 +516,57 @@ Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase, Sys
                     </Grid>
                 </TabItem>
 
+                <TabItem Header="📦 Software Audit">
+                    <Grid Margin="30">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        
+                        <StackPanel Grid.Row="0" Margin="0,0,0,20">
+                            <TextBlock Text="Software &amp; Package Inventory" FontSize="28" FontWeight="ExtraBold" Foreground="White"/>
+                            <TextBlock Text="Comprehensive audit of Win32 Apps, Appx Packages, and System Features." Foreground="#666"/>
+                        </StackPanel>
+
+                        <Border Grid.Row="1" Background="#0D0D0F" CornerRadius="10" Padding="10" BorderBrush="#1A1A1D" BorderThickness="1">
+                            <DataGrid Name="dgSoftware" AutoGenerateColumns="False" Background="Transparent" Foreground="#BBB" BorderThickness="0" IsReadOnly="True" SelectionMode="Single">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="STATUS" Binding="{Binding Status}" Width="85">
+                                        <DataGridTextColumn.ElementStyle>
+                                            <Style TargetType="TextBlock">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Status}" Value="ACTIVE">
+                                                        <Setter Property="Foreground" Value="#00FF00"/>
+                                                        <Setter Property="FontWeight" Value="Bold"/>
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding Status}" Value="Idle">
+                                                        <Setter Property="Foreground" Value="#666"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </DataGridTextColumn.ElementStyle>
+                                    </DataGridTextColumn>
+
+                                    <DataGridTextColumn Header="APPLICATION NAME" Binding="{Binding Name}" Width="*"/>
+                                    <DataGridTextColumn Header="VERSION" Binding="{Binding Version}" Width="100"/>
+                                    <DataGridTextColumn Header="PUBLISHER" Binding="{Binding Publisher}" Width="120"/>
+                                    <DataGridTextColumn Header="ARCH" Binding="{Binding Arch}" Width="60"/>
+                                    <DataGridTextColumn Header="SOURCE" Binding="{Binding Source}" Width="70"/>
+                                    <DataGridTextColumn Header="INSTALL DATE" Binding="{Binding InstallDate}" Width="100"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Border>
+
+                        <UniformGrid Grid.Row="2" Columns="4" Margin="0,15,0,0">
+                            <Button Name="btnScanSoftware" Content="🔍 FULL INVENTORY SCAN" Height="50" Background="#007ACC" Foreground="White" FontWeight="Bold" BorderThickness="0"/>
+                            <Button Name="btnListUpdates" Content="🛡️ VIEW PENDING UPDATES" Height="50" Margin="10,0" Background="#1A1A25" Foreground="White" BorderThickness="0"/>
+                            <Button Name="btnGetFeatures" Content="⚙️ WINDOWS FEATURES" Height="50" Margin="0,0,10,0" Background="#1A1A25" Foreground="White" BorderThickness="0"/>
+                            <Button Name="btnUninstallApp" Content="❌ UNINSTALL SELECTED" Height="50" Background="#B71C1C" Foreground="White" FontWeight="Bold" BorderThickness="0"/>
+                        </UniformGrid>
+                    </Grid>
+                </TabItem>
+
             </TabControl>
         </DockPanel>
     </Grid>
@@ -577,7 +629,8 @@ $nodes = @(
     "stGW", "stDNS", "stUser", "stLogon", "stIdle", "dgEvents", "txtStatus", "elStatus",
     "cntCritical", "cntSecurity", "cntDisk", "cntApp", "txtEventFilter",
     "navScreen", "imgScreenshot", "btnTakeScreenshot",
-    "dgNetstat", "btnNetstat", "btnIPConfig", "btnRoutePrint", "btnDNSFlush"
+    "dgNetstat", "btnNetstat", "btnIPConfig", "btnRoutePrint", "btnDNSFlush",
+    "dgSoftware", "btnScanSoftware", "btnListUpdates", "btnGetFeatures", "btnUninstallApp"
 )
 
 foreach ($node in $nodes) {
@@ -595,6 +648,7 @@ $navSvc.Add_Click({ $MainTabs.SelectedIndex = 7 })
 $navCons.Add_Click({ $MainTabs.SelectedIndex = 8 })
 $navConfig.Add_Click({ $MainTabs.SelectedIndex = 9 })
 $navScreen.Add_Click({ $MainTabs.SelectedIndex = 10 })
+$navSoftware.Add_Click({ $MainTabs.SelectedIndex = 11 })
 
 $btnGlobalSync.Add_Click({
         $target = $txtHost.Text
@@ -1068,6 +1122,209 @@ $btnTakeScreenshot.Add_Click({
             $mainStatus.Text = "Capture Failed: Ensure a user is logged in and active."
         }
         $btnTakeScreenshot.IsEnabled = $true
+    })
+
+$btnScanSoftware.Add_Click({
+        $mainStatus.Text = "Deep-scanning Registry, Appx, and Running Processes..."
+        $dgSoftware.ItemsSource = $null
+        $softwareList = Invoke-RExec {
+            $runningProcs = Get-Process | Select-Object -ExpandProperty Name
+            $results = New-Object System.Collections.Generic.List[PSCustomObject]
+            $regPaths = @(
+                "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*",
+                "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*",
+                "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*"
+            )
+            foreach ($path in $regPaths) {
+                $keys = Get-ItemProperty $path -ErrorAction SilentlyContinue
+                foreach ($key in $keys) {
+                    if ($key.DisplayName) {
+                        $isRun = "Idle"
+                        foreach ($p in $runningProcs) {
+                            if ($key.DisplayName -like "*$p*") { $isRun = "ACTIVE"; break }
+                        }
+                        $results.Add([PSCustomObject]@{
+                                Status      = $isRun
+                                Name        = $key.DisplayName
+                                Version     = $key.DisplayVersion
+                                Publisher   = $key.Publisher
+                                InstallDate = $key.InstallDate
+                                Arch        = if ($key.PSPath -match "WOW6432Node") { "x86" } else { "x64" }
+                                Source      = "Win32"
+                                Location    = $key.InstallLocation
+                                UninstallID = $key.PSChildName
+                            })
+                    }
+                }
+            }
+            Get-AppxPackage -AllUsers | ForEach-Object {
+                $results.Add([PSCustomObject]@{
+                        Status      = "Modern"
+                        Name        = $_.Name
+                        Version     = $_.Version
+                        Publisher   = ($_.Publisher -split ",")[0].Replace("CN=", "")
+                        InstallDate = "N/A"
+                        Arch        = "Appx"
+                        Source      = "Store"
+                        Location    = $_.InstallLocation
+                        UninstallID = $_.PackageFullName
+                    })
+            }
+            $results | Sort-Object Status, Name
+        }
+        $dgSoftware.ItemsSource = $softwareList
+        $mainStatus.Text = "Inventory complete."
+    })
+
+$btnListUpdates.Add_Click({
+        $mainStatus.Text = "📡 Connecting to Windows Update Agent... (This may take 30-60s)"
+        $dgSoftware.ItemsSource = $null
+        $updatesList = Invoke-RExec {
+            try {
+                $updateSession = New-Object -ComObject Microsoft.Update.Session
+                $updateSearcher = $updateSession.CreateUpdateSearcher()
+                $searchResult = $updateSearcher.Search("IsInstalled=0 and Type='Software'")
+                $searchResult.Updates | ForEach-Object {
+                    [PSCustomObject]@{
+                        Status      = "PENDING"
+                        Name        = $_.Title
+                        Version     = "KB" + ($_.KBArticleIDs -join ", ")
+                        Publisher   = "Microsoft (Windows Update)"
+                        Arch        = if ($_.Categories.Name -contains "Critical Updates") { "CRITICAL" } else { "Optional" }
+                        Source      = "WinUpdate"
+                        InstallDate = "Waiting..."
+                        UninstallID = $_.Identity.UpdateID
+                    }
+                }
+            }
+            catch {
+                return $null
+            }
+        }
+        if ($updatesList) {
+            $dgSoftware.ItemsSource = $updatesList
+            $mainStatus.Text = "Update Scan Complete: $($updatesList.Count) updates pending."
+        }
+        else {
+            $mainStatus.Text = "No pending updates found or Service is disabled."
+            $dgSoftware.ItemsSource = @() 
+        }
+    })
+
+$btnGetFeatures.Add_Click({
+        $mainStatus.Text = "Querying Windows Optional Features manifest..."
+        $dgSoftware.ItemsSource = $null
+        $featuresList = Invoke-RExec {
+            Get-WindowsOptionalFeature -Online -ErrorAction SilentlyContinue | ForEach-Object {
+                [PSCustomObject]@{
+                    Status      = if ($_.State -eq "Enabled") { "ACTIVE" } else { "Disabled" }
+                    Name        = $_.FeatureName
+                    Version     = "OS Native"
+                    Publisher   = "Microsoft Corporation"
+                    Arch        = "System"
+                    Source      = "WinFeature"
+                    InstallDate = "N/A"
+                    UninstallID = $_.FeatureName 
+                }
+            } | Sort-Object Status, Name
+        }
+        if ($featuresList) {
+            $dgSoftware.ItemsSource = $featuresList
+            $mainStatus.Text = "Windows Features Audit Complete: Found $($featuresList.Count) items."
+        }
+        else {
+            $mainStatus.Text = "Error: Could not retrieve Windows Features. Try running as Admin."
+        }
+    })
+
+$btnUninstallApp.Add_Click({
+        $selected = $dgSoftware.SelectedItem
+        if ($null -eq $selected) { 
+            $mainStatus.Text = "⚠️ Error: No software selected for removal."
+            $mainStatus.Foreground = "Red"
+            return 
+        }
+        $appName = $selected.Name
+        $appId = $selected.UninstallID
+        $source = $selected.Source
+        $msgText = "Are you absolutely sure you want to uninstall:`n`n[$appName]`n`nFrom the remote system? This action cannot be undone."
+        $msgCaption = "Confirm Remote Uninstallation"
+        $msgButtons = [System.Windows.MessageBoxButton]::YesNo
+        $msgIcon = [System.Windows.MessageBoxImage]::Warning
+        $response = [System.Windows.MessageBox]::Show($msgText, $msgCaption, $msgButtons, $msgIcon)
+        if ($response -ne "Yes") {
+            $mainStatus.Text = "❌ Uninstallation of $appName cancelled by user."
+            $mainStatus.Foreground = "White"
+            return
+        }
+        $mainStatus.Text = "⏳ Initializing deep-removal for: $appName..."
+        $mainStatus.Foreground = "Orange"
+        $result = Invoke-RExec {
+            param($id, $type, $name)
+            try {
+                if ($type -match "Win32|Registry") {
+                    $running = Get-Process | Where-Object { $_.ProcessName -match ($name -split " ")[0] } -ErrorAction SilentlyContinue
+                    if ($running) {
+                        Stop-Process -Name $running.ProcessName -Force -ErrorAction SilentlyContinue 
+                    }
+                }
+                if ($type -match "Appx|Store") {
+                    Remove-AppxPackage -Package $id -AllUsers -ErrorAction Stop
+                    return "SUCCESS: Modern App '$name' purged."
+                } 
+                elseif ($type -eq "WinFeature") {
+                    Disable-WindowsOptionalFeature -Online -FeatureName $id -NoRestart -ErrorAction Stop
+                    return "SUCCESS: Feature '$id' disabled."
+                }
+                else {
+                    $regPaths = @(
+                        "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\$id",
+                        "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\$id",
+                        "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\$id"
+                    )
+                    $unString = ""
+                    foreach ($path in $regPaths) {
+                        $key = Get-ItemProperty $path -ErrorAction SilentlyContinue
+                        if ($key.UninstallString) { $unString = $key.UninstallString; break }
+                    }
+                    if ($unString) {
+                        if ($unString -match "MsiExec.exe") {
+                            $silentArgs = $unString -replace "MsiExec.exe", "" -replace "/I", "/X"
+                            $silentArgs += " /qn /norestart /L*V C:\Windows\Temp\Uninstall_$id.log"
+                            $p = Start-Process MsiExec.exe -ArgumentList $silentArgs -Wait -PassThru
+                            if ($p.ExitCode -eq 0) { return "SUCCESS: MSI Uninstalled." }
+                            else { return "FAILED: MsiExec Exit Code $($p.ExitCode)" }
+                        }
+                        else {
+                            $p = Start-Process cmd.exe -ArgumentList "/c $unString /S /SILENT /VERYSILENT /QUIET /NORESTART" -Wait -PassThru -WindowStyle Hidden
+                            return "SUCCESS: Executed Uninstaller (Exit: $($p.ExitCode))."
+                        }
+                    }
+                    return "ERROR: Registry string for $id is missing or malformed."
+                }
+            }
+            catch {
+                return "FAILED: $($_.Exception.Message)"
+            }
+        } $appId $source $appName
+        if ($result -match "SUCCESS") {
+            $mainStatus.Text = "✅ $result ($appName)"
+            $mainStatus.Foreground = "LightGreen"
+            $timer = New-Object System.Windows.Threading.DispatcherTimer
+            $timer.Interval = [TimeSpan]::FromSeconds(2)
+            $timer.Add_Tick({
+                    $this.Stop() 
+                    $peer = New-Object System.Windows.Automation.Peers.ButtonAutomationPeer($btnScanSoftware)
+                    $invoker = $peer.GetPattern([System.Windows.Automation.Peers.PatternInterface]::Invoke)
+                    $invoker.Invoke()
+                    $mainStatus.Text = "Inventory refreshed."
+                })
+            $timer.Start()
+        }
+        else {
+            $mainStatus.Text = "❌ $result"
+            $mainStatus.Foreground = "Red"
+        }
     })
 
 $window.ShowDialog() | Out-Null
