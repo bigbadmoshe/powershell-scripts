@@ -41,6 +41,7 @@ Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase, Sys
                     <Button Name="navSec"  Style="{StaticResource NavBtn}" Content="🛡️ Security Center"/>
                     <Button Name="navSched" Style="{StaticResource NavBtn}" Content="⏳ Task Scheduler"/>
                     <Button Name="navSvc"  Style="{StaticResource NavBtn}" Content="🔧 System Services"/>
+                    <Button Name="navScreen" Style="{StaticResource NavBtn}" Content="📸 Remote View"/>
                     <Button Name="navCons" Style="{StaticResource NavBtn}" Content="🐚 PowerShell Console"/>
                     <Separator Background="#1A1A1D" Margin="15,10"/>
                     <Button Name="navConfig" Style="{StaticResource NavBtn}" Content="🛠️ Remote Config"/>
@@ -58,7 +59,7 @@ Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase, Sys
                             <TextBlock Name="lblSubStatus" Text="Awaiting initial synchronization..." FontSize="10" Foreground="#555"/>
                         </StackPanel>
                     </StackPanel>
-                    <Button Name="btnGlobalSync" HorizontalAlignment="Right" Content="SYNCHRONIZE ALL" Width="160" Height="35" Background="#007ACC" Foreground="White" BorderThickness="0" FontWeight="Bold"/>
+                    <Button Name="btnGlobalSync" HorizontalAlignment="Right" Content="CONNECT / SYNC" Width="160" Height="35" Background="#007ACC" Foreground="White" BorderThickness="0" FontWeight="Bold"/>
                 </Grid>
             </Border>
 
@@ -112,6 +113,30 @@ Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase, Sys
                                         <TextBlock Text="NET RESPONSE" Foreground="#9C27B0" FontSize="10" FontWeight="Bold"/>
                                         <TextBlock Name="dashPing" Text="-- ms" FontSize="30" FontWeight="Bold" Foreground="White"/>
                                         <TextBlock Name="dashJitter" Text="STABLE" FontSize="9" Foreground="#444"/>
+                                    </StackPanel>
+                                </Border>
+                            </UniformGrid>
+
+                            <UniformGrid Columns="3" Height="110" Margin="0,15,0,0">
+                                <Border Background="#121214" Margin="4" CornerRadius="10" BorderBrush="#1A1A1D" BorderThickness="1">
+                                    <StackPanel VerticalAlignment="Center" Margin="15,0">
+                                        <TextBlock Text="SYSTEM UPTIME" Foreground="#00BCD4" FontSize="10" FontWeight="Bold"/>
+                                        <TextBlock Name="dashUptime" Text="-- d -- h" FontSize="24" FontWeight="Bold" Foreground="White"/>
+                                        <TextBlock Text="Continuous Operation" FontSize="9" Foreground="#444" Margin="0,5,0,0"/>
+                                    </StackPanel>
+                                </Border>
+                                <Border Background="#121214" Margin="4" CornerRadius="10" BorderBrush="#1A1A1D" BorderThickness="1">
+                                    <StackPanel VerticalAlignment="Center" Margin="15,0">
+                                        <TextBlock Text="LAST BOOT TIME" Foreground="#FFEB3B" FontSize="10" FontWeight="Bold"/>
+                                        <TextBlock Name="dashBoot" Text="--:--:--" FontSize="18" FontWeight="Bold" Foreground="White"/>
+                                        <TextBlock Name="dashBootDate" Text="--/--/----" FontSize="10" Foreground="#666"/>
+                                    </StackPanel>
+                                </Border>
+                                <Border Background="#121214" Margin="4" CornerRadius="10" BorderBrush="#1A1A1D" BorderThickness="1">
+                                    <StackPanel VerticalAlignment="Center" Margin="15,0">
+                                        <TextBlock Text="OS ARCHITECTURE" Foreground="#9C27B0" FontSize="10" FontWeight="Bold"/>
+                                        <TextBlock Name="dashOS" Text="--" FontSize="18" FontWeight="Bold" Foreground="White" TextWrapping="Wrap"/>
+                                        <TextBlock Name="dashBuild" Text="Build: ----" FontSize="9" Foreground="#444"/>
                                     </StackPanel>
                                 </Border>
                             </UniformGrid>
@@ -318,7 +343,7 @@ Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase, Sys
                             <Border Background="#1A1111" Padding="25" CornerRadius="10" BorderBrush="#331111" BorderThickness="1">
                                 <StackPanel>
                                     <TextBlock Text="CUSTOM OVERLAY MESSAGE" FontSize="10" Foreground="#888" Margin="0,0,0,5"/>
-                                    <TextBox Name="txtCustomMsg" Text="ADMINISTRATIVE ALERT: Maintenance in progress." 
+                                    <TextBox Name="txtCustomMsg" Text="ALERT" 
                                             Padding="10" Background="#111" Foreground="White" BorderBrush="#444" Margin="0,0,0,10"/>
                                     
                                     <Button Name="btnPanicMsg" Content="SEND ADMINISTRATIVE OVERLAY MESSAGE" Height="50" 
@@ -357,14 +382,14 @@ Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase, Sys
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
                         
-                        <TextBlock Text="Enterprise Task Management" FontSize="26" Foreground="White" Margin="0,0,0,20"/>
+                        <TextBlock Text="Task Management" FontSize="26" Foreground="White" Margin="0,0,0,20"/>
                         
                         <Border Grid.Row="1" Background="#0A0A10" Padding="20" CornerRadius="8" Margin="0,0,0,20" BorderBrush="#1A1A25" BorderThickness="1">
                             <Grid>
                                 <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                                 <StackPanel Grid.Column="0" Margin="0,0,10,0">
                                     <TextBlock Text="TASK NAME" FontSize="10" Foreground="#00A2FF" Margin="0,0,0,5"/>
-                                    <TextBox Name="txtSchedName" Text="ApexWatchdog" Padding="8" Background="#15151A" Foreground="White" BorderThickness="1" BorderBrush="#333"/>
+                                    <TextBox Name="txtSchedName" Text="watchDog" Padding="8" Background="#15151A" Foreground="White" BorderThickness="1" BorderBrush="#333"/>
                                     <TextBlock Text="EXECUTABLE / COMMAND" FontSize="10" Foreground="#00A2FF" Margin="0,10,0,5"/>
                                     <TextBox Name="txtSchedPath" Text="powershell.exe" Padding="8" Background="#15151A" Foreground="White" BorderThickness="1" BorderBrush="#333"/>
                                 </StackPanel>
@@ -386,12 +411,13 @@ Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase, Sys
                             </DataGrid.Columns>
                         </DataGrid>
 
-                        <UniformGrid Grid.Row="3" Columns="5" Margin="0,15,0,0">
-                            <Button Name="btnSchedRefresh" Content="🔄 REFRESH" Height="45" Margin="0,0,5,0" Background="#1A1A25" Foreground="White"/>
-                            <Button Name="btnSchedStart"   Content="▶️ RUN" Height="45" Margin="5,0,5,0" Background="#0D47A1" Foreground="White"/>
-                            <Button Name="btnSchedStop"    Content="⏹️ STOP" Height="45" Margin="5,0,5,0" Background="#B71C1C" Foreground="White"/>
-                            <Button Name="btnSchedEnable"  Content="🔓 ENABLE" Height="45" Margin="5,0,5,0" Background="#2E7D32" Foreground="White"/>
-                            <Button Name="btnSchedDelete"  Content="🗑️ DELETE" Height="45" Margin="5,0,0,0" Background="#D32F2F" Foreground="White"/>
+                        <UniformGrid Grid.Row="3" Columns="6" Margin="0,15,0,0">
+                            <Button Name="btnSchedRefresh" Content="🔄 REFRESH" Height="45" Margin="0,0,3,0" Background="#1A1A25" Foreground="White" BorderThickness="0"/>
+                            <Button Name="btnSchedStart"   Content="▶️ RUN"     Height="45" Margin="3,0,3,0" Background="#0D47A1" Foreground="White" BorderThickness="0"/>
+                            <Button Name="btnSchedStop"    Content="⏹️ STOP"    Height="45" Margin="3,0,3,0" Background="#B71C1C" Foreground="White" BorderThickness="0"/>
+                            <Button Name="btnSchedEnable"  Content="🔓 ENABLE"  Height="45" Margin="3,0,3,0" Background="#2E7D32" Foreground="White" BorderThickness="0"/>
+                            <Button Name="btnSchedDisable" Content="🔒 DISABLE" Height="45" Margin="3,0,3,0" Background="#424242" Foreground="White" BorderThickness="0"/>
+                            <Button Name="btnSchedDelete"  Content="🗑️ DELETE"  Height="45" Margin="3,0,0,0" Background="#D32F2F" Foreground="White" BorderThickness="0"/>
                         </UniformGrid>
                     </Grid>
                 </TabItem>
@@ -428,11 +454,38 @@ Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase, Sys
                 <TabItem>
                     <StackPanel Margin="100,50">
                         <TextBlock Text="Remote Authentication Config" FontSize="24" FontWeight="Bold" Margin="0,0,0,30"/>
-                        <TextBlock Text="Target IP / Hostname"/><TextBox Name="txtHost" Text="127.0.0.1" Margin="0,5,0,20" Padding="12" Background="#111114" Foreground="White"/>
-                        <TextBlock Text="Admin Username"/><TextBox Name="txtUser" Text="Administrator" Margin="0,5,0,20" Padding="12" Background="#111114" Foreground="White"/>
+                        <TextBlock Text="Target IP / Hostname"/><TextBox Name="txtHost" Text="remote_host" Margin="0,5,0,20" Padding="12" Background="#111114" Foreground="White"/>
+                        <TextBlock Text="Admin Username"/><TextBox Name="txtUser" Text="remote_user" Margin="0,5,0,20" Padding="12" Background="#111114" Foreground="White"/>
                         <TextBlock Text="Access Password"/><PasswordBox Name="txtPass" Margin="0,5,0,30" Padding="12" Background="#111114" Foreground="White"/>
                     </StackPanel>
                 </TabItem>
+                
+                <TabItem>
+                    <Grid Margin="30">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        
+                        <StackPanel Grid.Row="0" Margin="0,0,0,20">
+                            <TextBlock Text="Live Screen Capture" FontSize="28" FontWeight="ExtraBold" Foreground="White"/>
+                            <TextBlock Text="Visualizes the active user's desktop session via GDI+ capture." Foreground="#666"/>
+                        </StackPanel>
+
+                        <Border Grid.Row="1" Background="#050505" BorderBrush="#1A1A1D" BorderThickness="1" CornerRadius="10" Padding="5">
+                            <Image Name="imgScreenshot" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality">
+                                <Image.Effect>
+                                    <DropShadowEffect BlurRadius="15" ShadowDepth="0" Color="Black" Opacity="0.5"/>
+                                </Image.Effect>
+                            </Image>
+                        </Border>
+
+                        <Button Name="btnTakeScreenshot" Grid.Row="2" Content="GENERATE REMOTE SCREENSHOT" 
+                                Height="50" Margin="0,20,0,0" Background="#007ACC" Foreground="White" FontWeight="Bold" BorderThickness="0"/>
+                    </Grid>
+                </TabItem>
+
             </TabControl>
         </DockPanel>
     </Grid>
@@ -493,7 +546,8 @@ $nodes = @(
     "lblNodeName", "lblNodeIP", "dashCPU", "pbCPU", "dashRAM", "pbRAM", 
     "dashDisk", "pbDisk", "dashPing", "stFW", "stAV", "stBit", 
     "stGW", "stDNS", "stUser", "stLogon", "stIdle", "dgEvents", "txtStatus", "elStatus",
-    "cntCritical", "cntSecurity", "cntDisk", "cntApp", "txtEventFilter"
+    "cntCritical", "cntSecurity", "cntDisk", "cntApp", "txtEventFilter",
+    "navScreen", "imgScreenshot", "btnTakeScreenshot"
 )
 
 foreach ($node in $nodes) {
@@ -510,6 +564,7 @@ $navSched.Add_Click({ $MainTabs.SelectedIndex = 6 })
 $navSvc.Add_Click({ $MainTabs.SelectedIndex = 7 })
 $navCons.Add_Click({ $MainTabs.SelectedIndex = 8 })
 $navConfig.Add_Click({ $MainTabs.SelectedIndex = 9 })
+$navScreen.Add_Click({ $MainTabs.SelectedIndex = 10 })
 
 $btnGlobalSync.Add_Click({
         $target = $txtHost.Text
@@ -523,20 +578,8 @@ $btnGlobalSync.Add_Click({
         $latency = if ($p) { $p.ResponseTime } else { 999 }
         $data = Invoke-RExec {
             try {
-                $comp = Get-CimInstance Win32_OperatingSystem
-                $sysLogs = Get-WinEvent -FilterHashtable @{LogName = 'System'; Level = 1, 2; StartTime = (Get-Date).AddDays(-1) } -ErrorAction SilentlyContinue
-                $secLogs = Get-WinEvent -FilterHashtable @{LogName = 'Security'; Id = 4625; StartTime = (Get-Date).AddDays(-1) } -ErrorAction SilentlyContinue
-                $diskLogs = Get-WinEvent -FilterHashtable @{LogName = 'System'; ProviderName = 'Disk'; StartTime = (Get-Date).AddDays(-7) } -ErrorAction SilentlyContinue
-                $appLogs = Get-WinEvent -FilterHashtable @{LogName = 'Application'; Level = 2 } -MaxEvents 50 -ErrorAction SilentlyContinue
-                $gridItems = $sysLogs | ForEach-Object {
-                    [PSCustomObject]@{
-                        Time    = $_.TimeCreated.ToString("HH:mm:ss")
-                        ID      = $_.Id
-                        Source  = $_.ProviderName
-                        Message = $_.Message.Replace("`r", "").Replace("`n", " ").Substring(0, [math]::Min($_.Message.Length, 150)) + "..."
-                    }
-                }
-                $os = Get-CimInstance Win32_OperatingSystem -ErrorAction Stop
+                $comp = Get-CimInstance Win32_OperatingSystem -ErrorAction Stop
+                $uptimeSpan = (Get-Date) - $comp.LastBootUpTime
                 $cpu = Get-CimInstance Win32_Processor
                 $disk = Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='C:'"
                 $net = Get-NetIPConfiguration | Where-Object { $_.IPv4Address -ne $null } | Select-Object -First 1
@@ -545,71 +588,69 @@ $btnGlobalSync.Add_Click({
                 $u = "None"; $l = "N/A"; $i = "N/A"
                 $q = quser 2>$null
                 if ($q) { $f = $q[1] -split '\s+'; $u = $f[1]; $l = "$($f[5]) $($f[6])"; $i = $f[7] }
+                $sysLogs = Get-WinEvent -FilterHashtable @{LogName = 'System'; Level = 1, 2; StartTime = (Get-Date).AddDays(-1) } -ErrorAction SilentlyContinue
+                $secLogs = Get-WinEvent -FilterHashtable @{LogName = 'Security'; Id = 4625; StartTime = (Get-Date).AddDays(-1) } -ErrorAction SilentlyContinue
+                $diskLogs = Get-WinEvent -FilterHashtable @{LogName = 'System'; ProviderName = 'Disk'; StartTime = (Get-Date).AddDays(-7) } -ErrorAction SilentlyContinue
+                $appLogs = Get-WinEvent -FilterHashtable @{LogName = 'Application'; Level = 2 } -MaxEvents 50 -ErrorAction SilentlyContinue
                 $ev = Get-WinEvent -FilterHashtable @{LogName = 'System'; Level = 1, 2 } -MaxEvents 16 -ErrorAction SilentlyContinue | ForEach-Object {
                     [PSCustomObject]@{ Time = $_.TimeCreated.ToString("HH:mm"); ID = $_.Id; Source = $_.ProviderName; Message = $_.Message.Trim() }
                 }
                 return @{
-                    Name = $env:COMPUTERNAME; IP = $net.IPv4Address[0].IPAddress;
+                    Success = $true;
+                    HostName = $env:COMPUTERNAME;
+                    IP = $net.IPv4Address[0].IPAddress;
                     CPU = $cpu.LoadPercentage;
-                    RAM = [math]::Round((($os.TotalVisibleMemorySize - $os.FreePhysicalMemory) / $os.TotalVisibleMemorySize * 100), 0);
+                    RAM = [math]::Round((($comp.TotalVisibleMemorySize - $comp.FreePhysicalMemory) / $comp.TotalVisibleMemorySize * 100), 0);
                     Disk = [math]::Round((1 - ($disk.FreeSpace / $disk.Size)) * 100, 0);
-                    GW = $net.IPv4DefaultGateway.NextHop; DNS = $net.DNSServer.ServerAddresses[0];
+                    GW = $net.IPv4DefaultGateway.NextHop; 
+                    DNS = $net.DNSServer.ServerAddresses[0];
                     FW = (Get-NetFirewallProfile -Profile Domain).Enabled;
-                    AV = $mp.RealTimeProtectionEnabled; Bit = ($bit.ProtectionStatus -eq "On");
-                    User = $u; Logon = $l; Idle = $i; Events = $ev; Success = $true;
-                    Event = $gridItems;
+                    AV = $mp.RealTimeProtectionEnabled; 
+                    Bit = ($bit.ProtectionStatus -eq "On");
+                    User = $u; Logon = $l; Idle = $i; 
+                    Events = $ev;
                     CritCount = ($sysLogs | Where-Object { $_.Level -eq 1 }).Count;
                     SecCount = $secLogs.Count;
                     DiskCount = $diskLogs.Count;
                     AppCount = $appLogs.Count;
-                    HostName = $env:COMPUTERNAME;
                     OS = $comp.Caption;
+                    Build = $comp.Version;
+                    Uptime = "$($uptimeSpan.Days)d $($uptimeSpan.Hours)h $($uptimeSpan.Minutes)m";
+                    BootTime = $comp.LastBootUpTime.ToString("HH:mm:ss");
+                    BootDate = $comp.LastBootUpTime.ToString("MM/dd/yyyy");
                 }
             }
             catch { return @{ Success = $false; Msg = $_.Exception.Message } }
         }
         if ($data.Success) {
-            $lblNodeName.Text = "NODE: $($data.Name)"
+            $lblNodeName.Text = "NODE: $($data.HostName)"
             $lblNodeIP.Text = "$($data.IP) | Latency: $($latency)ms"
             $dashCPU.Text = "$($data.CPU)%"; $pbCPU.Value = $data.CPU
             $dashRAM.Text = "$($data.RAM)%"; $pbRAM.Value = $data.RAM
             $dashDisk.Text = "$($data.Disk)%"; $pbDisk.Value = $data.Disk
             $dashPing.Text = "$($latency)ms"
-            $stFW.Text = if ($data.FW) { "SECURE" }else { "OFF" }; $stFW.Foreground = if ($data.FW) { "#2ECC71" }else { "#F44336" }
-            $stAV.Text = if ($data.AV) { "ACTIVE" }else { "DISABLED" }; $stAV.Foreground = if ($data.AV) { "#2ECC71" }else { "#F44336" }
-            $stBit.Text = if ($data.Bit) { "ENCRYPTED" }else { "PLAIN" }; $stBit.Foreground = if ($data.Bit) { "#2ECC71" }else { "#E65100" }
+            $stFW.Text = if ($data.FW) { "SECURE" } else { "OFF" }; $stFW.Foreground = if ($data.FW) { "#2ECC71" } else { "#F44336" }
+            $stAV.Text = if ($data.AV) { "ACTIVE" } else { "DISABLED" }; $stAV.Foreground = if ($data.AV) { "#2ECC71" } else { "#F44336" }
+            $stBit.Text = if ($data.Bit) { "ENCRYPTED" } else { "PLAIN" }; $stBit.Foreground = if ($data.Bit) { "#2ECC71" } else { "#E65100" }
+            $dashUptime.Text = $data.Uptime
+            $dashBoot.Text = $data.BootTime
+            $dashBootDate.Text = $data.BootDate
+            $dashOS.Text = $data.OS.Replace("Microsoft ", "")
+            $dashBuild.Text = "Build: $($data.Build)"
             $stGW.Text = $data.GW; $stDNS.Text = $data.DNS
             $stUser.Text = $data.User; $stLogon.Text = "Logon: $($data.Logon)"; $stIdle.Text = "Idle: $($data.Idle)"
-            if ($data.Events) {
-                $dgEvents.ItemsSource = @($data.Events)
-                $list = New-Object System.Collections.Generic.List[PSObject]
-                foreach ($e in $data.Events) { $list.Add($e) }
-                $dgEvents.ItemsSource = $list
-            }
-            else {
-                $dgEvents.ItemsSource = @()
-            }
-            $cntCritical.Text = $data.CritCount
-            $cntSecurity.Text = $data.SecCount
-            $cntDisk.Text = $data.DiskCount
-            $cntApp.Text = $data.AppCount
-            $cntCritical.Foreground = if ([int]$data.CritCount -gt 0) { [System.Windows.Media.Brushes]::Red } else { [System.Windows.Media.Brushes]::White }
-            $cntSecurity.Foreground = if ([int]$data.SecCount -gt 5) { [System.Windows.Media.Brushes]::Orange } else { [System.Windows.Media.Brushes]::White }
-            $txtStatus.Text = "ONLINE"; $elStatus.Fill = [System.Windows.Media.Brushes]::LimeGreen
-            $statusDot.Fill = [System.Windows.Media.Brushes]::LimeGreen
-            $lblGlobalHost.Text = "REMOTE HOST: $($data.HostName.ToUpper())"
-            $lblGlobalHost.Foreground = [System.Windows.Media.Brushes]::White
-            $lblSubStatus.Text = "Online | User: $($data.User) | OS: $($data.OS)"
+            if ($data.Events) { $dgEvents.ItemsSource = @($data.Events) } else { $dgEvents.ItemsSource = @() }
+            $cntCritical.Text = $data.CritCount; $cntSecurity.Text = $data.SecCount; $cntDisk.Text = $data.DiskCount; $cntApp.Text = $data.AppCount
+            $cntCritical.Foreground = if ([int]$data.CritCount -gt 0) { "#F44336" } else { "White" }
+            $txtStatus.Text = "ONLINE"; $elStatus.Fill = "#2ECC71"; $statusDot.Fill = "#2ECC71"
+            $lblGlobalHost.Text = "REMOTE HOST: $($data.HostName.ToUpper())"; $lblGlobalHost.Foreground = "White"
+            $lblSubStatus.Text = "Online | User: $($data.User) | Time: $(Get-Date -Format "HH:mm:ss")"
             $mainStatus.Text = "Synchronization Successful."
         }
         else {
-            $txtStatus.Text = "ERROR"; $elStatus.Fill = [System.Windows.Media.Brushes]::Red
-            $lblNodeName.Text = "CONNECTION FAILED"
-            $statusDot.Fill = [System.Windows.Media.Brushes]::Red
-            $lblGlobalHost.Text = "REMOTE HOST: OFFLINE"
-            $lblGlobalHost.Foreground = [System.Windows.Media.Brushes]::Red
-            $lblSubStatus.Text = "Connection failed. Check WinRM/Credentials."
-            $mainStatus.Text = "Sync Failed."
+            $txtStatus.Text = "ERROR"; $elStatus.Fill = "#F44336"; $statusDot.Fill = "#F44336"
+            $lblGlobalHost.Text = "REMOTE HOST: OFFLINE"; $lblGlobalHost.Foreground = "#F44336"
+            $mainStatus.Text = "Sync Failed: $($data.Msg)"
         }
     })
 
@@ -678,6 +719,86 @@ $btnListFiles.Add_Click({
         }
         else {
             $mainStatus.Text = "No items found or path inaccessible."
+        }
+    })
+
+$btnSchedRefresh.Add_Click({
+        $mainStatus.Text = "Fetching tasks..."
+        $tasks = Invoke-RExec { 
+            Get-ScheduledTask | ForEach-Object {
+                $info = Get-ScheduledTaskInfo -TaskName $_.TaskName -TaskPath $_.TaskPath -ErrorAction SilentlyContinue
+                [PSCustomObject]@{
+                    Name       = $_.TaskName
+                    Path       = $_.TaskPath  # CRITICAL: Buttons need this to find the task
+                    State      = $_.State.ToString()
+                    LastResult = if ($info) { $info.LastTaskResult } else { "0" }
+                }
+            }
+        }
+        $dgTasks.ItemsSource = $tasks
+        $mainStatus.Text = "Tasks Loaded."
+    })
+
+$btnCreateTask.Add_Click({
+        $n = $txtSchedName.Text
+        $e = $txtSchedPath.Text
+        $a = $txtSchedArgs.Text
+        Invoke-RExec {
+            param($name, $exe, $tArgs) 
+            $action = New-ScheduledTaskAction -Execute $exe -Argument $tArgs
+            $trigger = New-ScheduledTaskTrigger -AtLogOn
+            Register-ScheduledTask -Action $action -Trigger $trigger -TaskName $name -User "SYSTEM" -Force
+        } $n, $e, $a
+        $btnSchedRefresh.RaiseEvent((New-Object System.Windows.RoutedEventArgs([System.Windows.Controls.Button]::ClickEvent)))
+    })
+
+$btnSchedStart.Add_Click({
+        if ($dgTasks.SelectedItem) {
+            $sel = $dgTasks.SelectedItem
+            Invoke-RExec { param($name, $path) Start-ScheduledTask -TaskName $name -TaskPath $path } $sel.Name, $sel.Path
+            $mainStatus.Text = "Task Started: $($sel.Name)"
+        }
+    })
+
+$btnSchedStop.Add_Click({
+        if ($dgTasks.SelectedItem) {
+            $sel = $dgTasks.SelectedItem
+            Invoke-RExec { param($name, $path) Stop-ScheduledTask -TaskName $name -TaskPath $path } $sel.Name, $sel.Path
+            $mainStatus.Text = "Task Stopped: $($sel.Name)"
+        }
+    })
+
+$btnSchedEnable.Add_Click({
+        if ($dgTasks.SelectedItem) {
+            Invoke-RExec { param($n, $p) Enable-ScheduledTask -TaskName $n -TaskPath $p } $dgTasks.SelectedItem.Name, $dgTasks.SelectedItem.Path
+            $btnSchedRefresh.RaiseEvent((New-Object System.Windows.RoutedEventArgs([System.Windows.Controls.Button]::ClickEvent)))
+        }
+    })
+
+$btnSchedDisable.Add_Click({
+        if ($dgTasks.SelectedItem) {
+            $sel = $dgTasks.SelectedItem
+            $mainStatus.Text = "Disabling task: $($sel.Name)..."
+            Invoke-RExec { 
+                param($name, $path) 
+                Disable-ScheduledTask -TaskName $name -TaskPath $path -ErrorAction Stop
+            } $sel.Name, $sel.Path
+            $mainStatus.Text = "Task Disabled: $($sel.Name)"
+            $btnSchedRefresh.RaiseEvent((New-Object System.Windows.RoutedEventArgs([System.Windows.Controls.Button]::ClickEvent)))
+        }
+        else {
+            $mainStatus.Text = "Warning: No task selected to disable."
+        }
+    })
+
+$btnSchedDelete.Add_Click({
+        if ($dgTasks.SelectedItem) {
+            $sel = $dgTasks.SelectedItem
+            $confirm = [System.Windows.MessageBox]::Show("Are you sure you want to delete task: $($sel.Name)?", "Confirm", "YesNo", "Warning")
+            if ($confirm -eq "Yes") {
+                Invoke-RExec { param($name, $path) Unregister-ScheduledTask -TaskName $name -TaskPath $path -Confirm:$false } $sel.Name, $sel.Path
+                $btnSchedRefresh.RaiseEvent((New-Object System.Windows.RoutedEventArgs([System.Windows.Controls.Button]::ClickEvent)))
+            }
         }
     })
 
@@ -821,6 +942,54 @@ $btnRunShell.Add_Click({ $cmd = $txtCommand.Text; $txtOutput.Text = Invoke-RExec
 $btnSvcRefresh.Add_Click({
         $svcs = Invoke-RExec { Get-Service | Select-Object Name, DisplayName, Status }
         $dgServices.ItemsSource = foreach ($s in $svcs) { [PSCustomObject]@{ Name = $s.Name; Display = $s.DisplayName; Status = $s.Status.ToString() } }
+    })
+
+$btnTakeScreenshot.Add_Click({
+        $mainStatus.Text = "Requesting Remote GDI+ Capture..."
+        $btnTakeScreenshot.IsEnabled = $false
+        $remoteCapScript = {
+            $path = "$env:TEMP\rs_cap.png"
+            Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+            $screen = [System.Windows.Forms.Screen]::PrimaryScreen
+            $bmp = New-Object System.Drawing.Bitmap($screen.Bounds.Width, $screen.Bounds.Height)
+            $gfx = [System.Drawing.Graphics]::FromImage($bmp)
+            $gfx.CopyFromScreen($screen.Bounds.X, $screen.Bounds.Y, 0, 0, $bmp.Size)
+            $bmp.Save($path, [System.Drawing.Imaging.ImageFormat]::Png)
+            $gfx.Dispose()
+            $bmp.Dispose()
+        }
+        $rawBytes = Invoke-RExec {
+            param($sBlock)
+            $tempFile = "$env:TEMP\cap_task.ps1"
+            $sBlock.ToString() | Out-File $tempFile -Force
+            $tName = "RC_Screenshot_$(Get-Random)"
+            $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-WindowStyle Hidden -ExecutionPolicy Bypass -File $tempFile"
+            Register-ScheduledTask -TaskName $tName -Action $action -Force | Out-Null
+            Start-ScheduledTask -TaskName $tName
+            $retry = 0
+            while (!(Test-Path "$env:TEMP\rs_cap.png") -and $retry -lt 15) { Start-Sleep -Milliseconds 500; $retry++ }
+            if (Test-Path "$env:TEMP\rs_cap.png") {
+                $bytes = [System.IO.File]::ReadAllBytes("$env:TEMP\rs_cap.png")
+                Remove-Item "$env:TEMP\rs_cap.png", $tempFile -Force -ErrorAction SilentlyContinue
+                Unregister-ScheduledTask -TaskName $tName -Confirm:$false
+                return $bytes
+            }
+        } $remoteCapScript
+        if ($rawBytes) {
+            $ms = New-Object System.IO.MemoryStream(, $rawBytes)
+            $bi = New-Object System.Windows.Media.Imaging.BitmapImage
+            $bi.BeginInit()
+            $bi.StreamSource = $ms
+            $bi.CacheOption = [System.Windows.Media.Imaging.BitmapCacheOption]::OnLoad
+            $bi.EndInit()
+            $bi.Freeze()
+            $imgScreenshot.Source = $bi
+            $mainStatus.Text = "Screenshot Received."
+        }
+        else {
+            $mainStatus.Text = "Capture Failed: Ensure a user is logged in and active."
+        }
+        $btnTakeScreenshot.IsEnabled = $true
     })
 
 $window.ShowDialog() | Out-Null
