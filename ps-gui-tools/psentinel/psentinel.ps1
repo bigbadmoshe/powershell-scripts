@@ -324,14 +324,43 @@ Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase, Sys
 
                 <TabItem>
                     <Grid Margin="30">
-                        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-                        <TextBlock Text="Network Audit" FontSize="24" FontWeight="Bold" Margin="0,0,0,20"/>
-                        <UniformGrid Grid.Row="1" Columns="3" Margin="0,0,0,15">
-                            <Button Name="btnNetstat" Content="ACTIVE CONNECTIONS" Height="40" Margin="0,0,5,0"/>
-                            <Button Name="btnIPConfig" Content="INTERFACE DETAILS" Height="40" Margin="5,0,5,0"/>
-                            <Button Name="btnDNSTest" Content="FLUSH DNS" Height="40" Margin="5,0,0,0"/>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/> <RowDefinition Height="150"/> <RowDefinition Height="Auto"/> </Grid.RowDefinitions>
+
+                        <StackPanel Grid.Row="0" Margin="0,0,0,20">
+                            <TextBlock Text="Network Intelligence Audit" FontSize="26" FontWeight="ExtraBold" Foreground="White"/>
+                            <TextBlock Text="Live TCP/UDP socket monitoring and interface diagnostics." Foreground="#666"/>
+                        </StackPanel>
+
+                        <Border Grid.Row="1" Background="#0D0D0F" CornerRadius="10" Padding="10" BorderBrush="#1A1A1D" BorderThickness="1">
+                            <DataGrid Name="dgNetstat" AutoGenerateColumns="False" Background="Transparent" Foreground="#BBB" BorderThickness="0" IsReadOnly="True">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="PROCESS" Binding="{Binding ProcessName}" Width="120">
+                                        <DataGridTextColumn.ElementStyle>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="ToolTip" Value="{Binding Path}"/> </Style>
+                                        </DataGridTextColumn.ElementStyle>
+                                    </DataGridTextColumn>
+                                        <DataGridTextColumn Header="PROTOCOL" Binding="{Binding Protocol}" Width="120"/>
+                                        <DataGridTextColumn Header="USER" Binding="{Binding User}" Width="100"/>
+                                        <DataGridTextColumn Header="LOCAL PORT" Binding="{Binding LocalPort}" Width="80"/>
+                                        <DataGridTextColumn Header="REMOTE IP" Binding="{Binding RemoteAddress}" Width="120"/>
+                                        <DataGridTextColumn Header="HOSTNAME" Binding="{Binding Hostname}" Width="180"/>
+                                        <DataGridTextColumn Header="STATE" Binding="{Binding State}" Width="100"/>
+                                        <DataGridTextColumn Header="EXE PATH" Binding="{Binding Path}" Width="250"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Border>
+
+                        <TextBox Name="txtNetOutput" Grid.Row="2" Margin="0,15,0,0" IsReadOnly="True" Background="#050505" Foreground="#00FF00" FontFamily="Consolas" VerticalScrollBarVisibility="Auto" Padding="10" BorderBrush="#222"/>
+
+                        <UniformGrid Grid.Row="3" Columns="4" Margin="0,15,0,0">
+                            <Button Name="btnNetstat" Content="🔍 SCAN CONNECTIONS" Height="45" Margin="0,0,5,0" Background="#007ACC" Foreground="White" FontWeight="Bold" BorderThickness="0"/>
+                            <Button Name="btnIPConfig" Content="📋 INTERFACE DETAILS" Height="45" Margin="5,0,5,0" Background="#1A1A25" Foreground="White" BorderThickness="0"/>
+                            <Button Name="btnRoutePrint" Content="🛤️ ROUTING TABLE" Height="45" Margin="5,0,5,0" Background="#1A1A25" Foreground="White" BorderThickness="0"/>
+                            <Button Name="btnDNSFlush" Content="🧹 FLUSH DNS" Height="45" Margin="5,0,0,0" Background="#B71C1C" Foreground="White" BorderThickness="0"/>
                         </UniformGrid>
-                        <TextBox Name="txtNetOutput" Grid.Row="2" IsReadOnly="True" Background="#050505" Foreground="#00FF00" FontFamily="Consolas" VerticalScrollBarVisibility="Auto" Padding="10"/>
                     </Grid>
                 </TabItem>
 
@@ -547,7 +576,8 @@ $nodes = @(
     "dashDisk", "pbDisk", "dashPing", "stFW", "stAV", "stBit", 
     "stGW", "stDNS", "stUser", "stLogon", "stIdle", "dgEvents", "txtStatus", "elStatus",
     "cntCritical", "cntSecurity", "cntDisk", "cntApp", "txtEventFilter",
-    "navScreen", "imgScreenshot", "btnTakeScreenshot"
+    "navScreen", "imgScreenshot", "btnTakeScreenshot",
+    "dgNetstat", "btnNetstat", "btnIPConfig", "btnRoutePrint", "btnDNSFlush"
 )
 
 foreach ($node in $nodes) {
@@ -713,7 +743,7 @@ $btnListFiles.Add_Click({
             } 
         } $path
         if ($results) {
-            $dgFiles.ItemsSource = $null # Clear old data
+            $dgFiles.ItemsSource = $null
             $dgFiles.ItemsSource = [System.Collections.ArrayList]@($results)
             $mainStatus.Text = "Displayed $($results.Count) items."
         }
@@ -729,7 +759,7 @@ $btnSchedRefresh.Add_Click({
                 $info = Get-ScheduledTaskInfo -TaskName $_.TaskName -TaskPath $_.TaskPath -ErrorAction SilentlyContinue
                 [PSCustomObject]@{
                     Name       = $_.TaskName
-                    Path       = $_.TaskPath  # CRITICAL: Buttons need this to find the task
+                    Path       = $_.TaskPath
                     State      = $_.State.ToString()
                     LastResult = if ($info) { $info.LastTaskResult } else { "0" }
                 }
@@ -830,9 +860,57 @@ $txtProcFilter.Add_TextChanged({
         }
     })
 
-$btnNetstat.Add_Click({ $txtNetOutput.Text = Invoke-RExec { netstat -ano | Select-Object -First 50 | Out-String } })
+$btnNetstat.Add_Click({
+        $mainStatus.Text = "Deep-scanning network stack and resolving hostnames..."
+        $dgNetstat.ItemsSource = $null
+        $netData = Invoke-RExec {
+            $tcp = Get-NetTCPConnection -ErrorAction SilentlyContinue
+            $udp = Get-NetUDPEndpoint -ErrorAction SilentlyContinue
+            $procMap = Get-Process -IncludeUserName -ErrorAction SilentlyContinue | 
+            Select-Object Id, ProcessName, Path, UserName
+            $allConns = @($tcp) + @($udp)
+            $allConns | ForEach-Object {
+                $currPID = $_.OwningProcess
+                $pInfo = $procMap | Where-Object { $_.Id -eq $currPID }
+                $rAddr = $_.RemoteAddress
+                $dnsName = "N/A"
+                if ($rAddr -and $rAddr -notmatch "0.0.0.0|::|127.0.0.1") {
+                    try { $dnsName = [System.Net.Dns]::GetHostEntry($rAddr).HostName } catch { $dnsName = "Unresolved" }
+                }
+                [PSCustomObject]@{
+                    Protocol      = if ($_.GetType().Name -match "TCP") { "TCP" } else { "UDP" }
+                    ProcessName   = if ($pInfo.ProcessName) { $pInfo.ProcessName.ToUpper() } else { "SYSTEM" }
+                    PID           = $currPID
+                    User          = $pInfo.UserName
+                    LocalPort     = $_.LocalPort
+                    RemoteAddress = if ($rAddr -eq "0.0.0.0" -or $rAddr -eq "::") { "LISTENING" } else { $rAddr }
+                    Hostname      = $dnsName
+                    State         = if ($_.State) { $_.State.ToString() } else { "ACTIVE" }
+                    Path          = $pInfo.Path
+                }
+            } | Sort-Object State, ProcessName
+        }
+        if ($netData) {
+            $dgNetstat.ItemsSource = $netData
+            $mainStatus.Text = "Deep Audit Successful: $($netData.Count) sockets analyzed."
+        }
+        else {
+            $mainStatus.Text = "Audit Failed. Check WinRM permissions."
+        }
+    })
 
-$btnIPConfig.Add_Click({ $txtNetOutput.Text = Invoke-RExec { ipconfig /all | Out-String } })
+$btnIPConfig.Add_Click({
+        $txtNetOutput.Text = Invoke-RExec { ipconfig /all | Out-String }
+    })
+
+$btnRoutePrint.Add_Click({
+        $txtNetOutput.Text = Invoke-RExec { route print -4 | Out-String }
+    })
+
+$btnDNSFlush.Add_Click({
+        Invoke-RExec { ipconfig /flushdns }
+        $txtNetOutput.Text = "DNS Resolver Cache Flushed Successfully."
+    })
 
 $btnPanicMsg.Add_Click({
         $customMessage = $txtCustomMsg.Text
