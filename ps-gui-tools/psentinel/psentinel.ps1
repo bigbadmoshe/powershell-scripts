@@ -42,6 +42,7 @@ Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase, Sys
                     <Button Name="navSched" Style="{StaticResource NavBtn}" Content="⏳ Task Scheduler"/>
                     <Button Name="navSvc"  Style="{StaticResource NavBtn}" Content="🔧 System Services"/>
                     <Button Name="navSoftware" Style="{StaticResource NavBtn}" Content="📦 Software Audit"/>
+                    <Button Name="navDrivers" Style="{StaticResource NavBtn}" Content="🔌 Driver Manager"/>
                     <Button Name="navScreen" Style="{StaticResource NavBtn}" Content="📸 Remote View"/>
                     <Button Name="navCons" Style="{StaticResource NavBtn}" Content="🐚 PowerShell Console"/>
                     <Separator Background="#1A1A1D" Margin="15,10"/>
@@ -567,6 +568,45 @@ Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase, Sys
                     </Grid>
                 </TabItem>
 
+                <TabItem Header="🔌 Driver Manager">
+                    <Grid Margin="30">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/> <RowDefinition Height="*"/>    <RowDefinition Height="Auto"/> </Grid.RowDefinitions>
+
+                        <StackPanel Grid.Row="0" Margin="0,0,0,15">
+                            <TextBlock Text="Hardware &amp; Driver Audit" FontSize="26" FontWeight="Bold" Foreground="White"/>
+                            <DockPanel Margin="0,5,0,0">
+                                <TextBlock Text="Complete inventory of PnP devices." Foreground="#666"/>
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                    <TextBlock Text="🔍 FILTER:" VerticalAlignment="Center" Margin="0,0,10,0" Foreground="#007ACC" FontSize="10"/>
+                                    <TextBox Name="txtDriverFilter" Width="200" Background="#111" Foreground="White" BorderBrush="#333" Padding="4"/>
+                                </StackPanel>
+                            </DockPanel>
+                        </StackPanel>
+
+                        <Border Grid.Row="1" Background="#0D0D0F" CornerRadius="8" BorderBrush="#1A1A1D" BorderThickness="1">
+                            <DataGrid Name="dgDrivers" AutoGenerateColumns="False" Background="Transparent" 
+                                    Foreground="#BBB" BorderThickness="0" IsReadOnly="True" 
+                                    SelectionMode="Single" VerticalScrollBarVisibility="Auto">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="CLASS" Binding="{Binding Class}" Width="120"/>
+                                    <DataGridTextColumn Header="DEVICE NAME" Binding="{Binding FriendlyName}" Width="*"/>
+                                    <DataGridTextColumn Header="STATUS" Binding="{Binding Status}" Width="80"/>
+                                    <DataGridTextColumn Header="VERSION" Binding="{Binding DriverVersion}" Width="120"/>
+                                    <DataGridTextColumn Header="INSTANCE ID" Binding="{Binding InstanceId}" Visibility="Collapsed"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Border>
+                        
+                        <UniformGrid Grid.Row="2" Columns="4" Margin="0,15,0,0" Height="45">
+                            <Button Name="btnScanDrivers" Content="🔍 FULL SCAN" Background="#007ACC" Foreground="White" FontWeight="Bold"/>
+                            <Button Name="btnDriverProps" Content="📄 PROPERTIES" Margin="10,0" Background="#1A1A25" Foreground="White"/>
+                            <Button Name="btnRestartDevice" Content="🔄 RESTART DEVICE" Margin="0,0,10,0" Background="#1A1A25" Foreground="White"/>
+                            <Button Name="btnUninstallDriver" Content="❌ UNINSTALL" Background="#B71C1C" Foreground="White" FontWeight="Bold"/>
+                        </UniformGrid>
+                    </Grid>
+                </TabItem>
+                
             </TabControl>
         </DockPanel>
     </Grid>
@@ -623,6 +663,23 @@ function Add-ToTrustedHosts {
     return $false
 }
 
+function Get-ActualPing {
+    param([string]$Hostname)
+    try {
+        $ping = New-Object System.Net.NetworkInformation.Ping
+        $reply = $ping.Send($Hostname, 1000)
+        if ($reply.Status -eq "Success") {
+            return $reply.RoundtripTime
+        }
+        else {
+            return -1
+        }
+    }
+    catch {
+        return -1
+    }
+}
+
 $nodes = @(
     "lblNodeName", "lblNodeIP", "dashCPU", "pbCPU", "dashRAM", "pbRAM", 
     "dashDisk", "pbDisk", "dashPing", "stFW", "stAV", "stBit", 
@@ -630,7 +687,10 @@ $nodes = @(
     "cntCritical", "cntSecurity", "cntDisk", "cntApp", "txtEventFilter",
     "navScreen", "imgScreenshot", "btnTakeScreenshot",
     "dgNetstat", "btnNetstat", "btnIPConfig", "btnRoutePrint", "btnDNSFlush",
-    "dgSoftware", "btnScanSoftware", "btnListUpdates", "btnGetFeatures", "btnUninstallApp"
+    "dgSoftware", "btnScanSoftware", "btnListUpdates", "btnGetFeatures", "btnUninstallApp",
+    "dgDrivers", "txtDriverFilter", "btnScanDrivers",
+    "dgProcesses", "txtProcFilter", "btnRefreshProc", "btnKill", "btnUninstallDriver",
+    "btnDriverProps", "btnRestartDevice"
 )
 
 foreach ($node in $nodes) {
@@ -649,17 +709,37 @@ $navCons.Add_Click({ $MainTabs.SelectedIndex = 8 })
 $navConfig.Add_Click({ $MainTabs.SelectedIndex = 9 })
 $navScreen.Add_Click({ $MainTabs.SelectedIndex = 10 })
 $navSoftware.Add_Click({ $MainTabs.SelectedIndex = 11 })
+$navDrivers.Add_Click({ $MainTabs.SelectedIndex = 12 })
 
 $btnGlobalSync.Add_Click({
         $target = $txtHost.Text
+        if ([string]::IsNullOrWhitespace($target)) { return }
+        $mainStatus.Foreground = [System.Windows.Media.Brushes]::White
         $statusDot.Fill = [System.Windows.Media.Brushes]::Orange
+        $elStatus.Fill = [System.Windows.Media.Brushes]::Orange
+        $txtStatus.Text = "CONNECTING..."
+        [System.Windows.Forms.Application]::DoEvents()
+        $mainStatus.Text = "📡 Step 1/3: Pinging $target..."
+        [System.Windows.Forms.Application]::DoEvents()
+        $ms = Get-ActualPing -Hostname $target
+        if ($ms -ge 0) {
+            $latency = $ms
+            $dashPing.Text = "$ms ms"
+            $dashPing.Foreground = if ($ms -lt 100) { [System.Windows.Media.Brushes]::LightGreen } else { [System.Windows.Media.Brushes]::Orange }
+            $mainStatus.Text = "📡 Step 1 Success ($ms ms). Authenticating..."
+        }
+        else {
+            $latency = 999
+            $dashPing.Text = "TIMEOUT"
+            $dashPing.Foreground = [System.Windows.Media.Brushes]::Red
+            $mainStatus.Text = "⚠️ Step 1: Timeout. Attempting WinRM anyway..."
+        }
+        [System.Windows.Forms.Application]::DoEvents()
         $lblGlobalHost.Text = "CONNECTING: $target..."
         $lblGlobalHost.Foreground = [System.Windows.Media.Brushes]::Orange
-        $mainStatus.Text = "Establishing WinRM Session..."
+        $mainStatus.Text = "🚀 Step 3/3: Establishing WinRM Session & Fetching Data..."
         $txtStatus.Text = "POLLING..."
-        $elStatus.Fill = [System.Windows.Media.Brushes]::Orange
-        $p = Test-Connection -ComputerName $target -Count 1 -ErrorAction SilentlyContinue
-        $latency = if ($p) { $p.ResponseTime } else { 999 }
+        [System.Windows.Forms.Application]::DoEvents()
         $data = Invoke-RExec {
             try {
                 $comp = Get-CimInstance Win32_OperatingSystem -ErrorAction Stop
@@ -715,12 +795,12 @@ $btnGlobalSync.Add_Click({
             $dashPing.Text = "$($latency)ms"
             $stFW.Text = if ($data.FW) { "SECURE" } else { "OFF" }; $stFW.Foreground = if ($data.FW) { "#2ECC71" } else { "#F44336" }
             $stAV.Text = if ($data.AV) { "ACTIVE" } else { "DISABLED" }; $stAV.Foreground = if ($data.AV) { "#2ECC71" } else { "#F44336" }
-            $stBit.Text = if ($data.Bit) { "ENCRYPTED" } else { "PLAIN" }; $stBit.Foreground = if ($data.Bit) { "#2ECC71" } else { "#E65100" }
+            $stBit.Text = if ($data.Bit) { "ENCRYPTED" } else { "PLAIN" }; $stBit.Foreground = if ($data.Bit) { "#2ECC71" } else { "#E65100" }       
             $dashUptime.Text = $data.Uptime
             $dashBoot.Text = $data.BootTime
             $dashBootDate.Text = $data.BootDate
             $dashOS.Text = $data.OS.Replace("Microsoft ", "")
-            $dashBuild.Text = "Build: $($data.Build)"
+            $dashBuild.Text = "Build: $($data.Build)"        
             $stGW.Text = $data.GW; $stDNS.Text = $data.DNS
             $stUser.Text = $data.User; $stLogon.Text = "Logon: $($data.Logon)"; $stIdle.Text = "Idle: $($data.Idle)"
             if ($data.Events) { $dgEvents.ItemsSource = @($data.Events) } else { $dgEvents.ItemsSource = @() }
@@ -729,12 +809,14 @@ $btnGlobalSync.Add_Click({
             $txtStatus.Text = "ONLINE"; $elStatus.Fill = "#2ECC71"; $statusDot.Fill = "#2ECC71"
             $lblGlobalHost.Text = "REMOTE HOST: $($data.HostName.ToUpper())"; $lblGlobalHost.Foreground = "White"
             $lblSubStatus.Text = "Online | User: $($data.User) | Time: $(Get-Date -Format "HH:mm:ss")"
-            $mainStatus.Text = "Synchronization Successful."
+            $mainStatus.Text = "✅ Synchronization Successful."
+            $mainStatus.Foreground = [System.Windows.Media.Brushes]::LightGreen
         }
         else {
             $txtStatus.Text = "ERROR"; $elStatus.Fill = "#F44336"; $statusDot.Fill = "#F44336"
             $lblGlobalHost.Text = "REMOTE HOST: OFFLINE"; $lblGlobalHost.Foreground = "#F44336"
-            $mainStatus.Text = "Sync Failed: $($data.Msg)"
+            $mainStatus.Text = "❌ Sync Failed: $($data.Msg)"
+            $mainStatus.Foreground = [System.Windows.Media.Brushes]::Red
         }
     })
 
@@ -1324,6 +1406,125 @@ $btnUninstallApp.Add_Click({
         else {
             $mainStatus.Text = "❌ $result"
             $mainStatus.Foreground = "Red"
+        }
+    })
+
+<# $navDrivers.Add_Click({ 
+        $MainTabs.SelectedIndex = 12 
+        $mainStatus.Text = "Hardware Inventory Tab Selected."
+    }) #>
+
+$btnScanDrivers.Add_Click({
+        $target = $txtHost.Text
+        if ([string]::IsNullOrWhiteSpace($target)) { 
+            $mainStatus.Text = "❌ Error: No target host specified."
+            $mainStatus.Foreground = "Red"
+            return 
+        }
+        $mainStatus.Text = "📡 Step 1/1: Fetching full hardware tree from $target..."
+        $mainStatus.Foreground = "Orange"
+        [System.Windows.Forms.Application]::DoEvents()
+        $results = Invoke-RExec {
+            try {
+                $allDevices = Get-PnpDevice -ErrorAction SilentlyContinue 
+                $list = foreach ($dev in $allDevices) {
+                    $verProperty = $dev | Get-PnpDeviceProperty -KeyName "DEVPKEY_Device_DriverVersion" -ErrorAction SilentlyContinue
+                    [PSCustomObject]@{
+                        Class         = $dev.Class
+                        FriendlyName  = if ($dev.FriendlyName) { $dev.FriendlyName } else { $dev.Name }
+                        Manufacturer  = $dev.Manufacturer
+                        Status        = $dev.Status
+                        DriverVersion = if ($verProperty.Data) { $verProperty.Data } else { "---" }
+                        InstanceId    = $dev.InstanceId
+                    }
+                }
+                return $list | Sort-Object Class, FriendlyName
+            }
+            catch {
+                return $null
+            }
+        }
+        if ($null -ne $results) {
+            $global:FullDriverList = $results
+            $dgDrivers.ItemsSource = @($results)
+            $mainStatus.Text = "✅ Success: $($results.Count) devices indexed from $target."
+            $mainStatus.Foreground = "LightGreen"
+        }
+        else {
+            $mainStatus.Text = "❌ Failed: Could not retrieve device list (Check WinRM/Permissions)."
+            $mainStatus.Foreground = "Red"
+            $dgDrivers.ItemsSource = @()
+        }
+    })
+
+$btnDriverProps.Add_Click({
+        $selected = $dgDrivers.SelectedItem
+        if (-not $selected) { return }
+        $mainStatus.Text = "📡 Fetching deep properties..."
+        [System.Windows.Forms.Application]::DoEvents()
+        $details = Invoke-RExec {
+            param($id)
+            $dev = Get-PnpDevice -InstanceId $id
+            $ver = ($dev | Get-PnpDeviceProperty -KeyName "DEVPKEY_Device_DriverVersion").Data
+            $date = ($dev | Get-PnpDeviceProperty -KeyName "DEVPKEY_Device_DriverDate").Data
+            $inf = ($dev | Get-PnpDeviceProperty -KeyName "DEVPKEY_Device_DriverInfPath").Data
+            $prov = ($dev | Get-PnpDeviceProperty -KeyName "DEVPKEY_Device_DriverProvider").Data
+            return "Device: $($dev.FriendlyName)`n`nStatus: $($dev.Status)`nManufacturer: $($dev.Manufacturer)`nDriver Version: $ver`nDriver Date: $date`nINF Path: $inf`nProvider: $prov`nInstance ID: $id"
+        } $selected.InstanceId
+        [System.Windows.MessageBox]::Show($details, "Driver Technical Properties", "OK", "Information")
+    })
+
+$btnRestartDevice.Add_Click({
+        $selected = $dgDrivers.SelectedItem
+        if (-not $selected) { return }
+        $mainStatus.Text = "🔄 Attempting to cycle device: $($selected.FriendlyName)"
+        [System.Windows.Forms.Application]::DoEvents()
+        $res = Invoke-RExec {
+            param($id)
+            try {
+                Disable-PnpDevice -InstanceId $id -Confirm:$false
+                Start-Sleep -Seconds 2
+                Enable-PnpDevice -InstanceId $id -Confirm:$false
+                return "SUCCESS"
+            }
+            catch { return $_.Exception.Message }
+        } $selected.InstanceId
+        if ($res -eq "SUCCESS") {
+            $mainStatus.Text = "✅ Device restarted successfully."
+            $mainStatus.Foreground = "LightGreen"
+        }
+        else {
+            $mainStatus.Text = "❌ Restart Failed: $res"
+            $mainStatus.Foreground = "Red"
+        }
+    })
+
+$btnUninstallDriver.Add_Click({
+        $selected = $dgDrivers.SelectedItem
+        if (-not $selected) { return }
+        $msg = "Confirm uninstallation of:`n$($selected.FriendlyName)"
+        $ans = [System.Windows.MessageBox]::Show($msg, "Warning", "YesNo", "Exclamation")
+        if ($ans -eq "Yes") {
+            $id = $selected.InstanceId
+            $res = Invoke-RExec {
+                param($targetId)
+                $process = Start-Process pnputil -ArgumentList "/remove-device ""$targetId""" -Wait -PassThru -WindowStyle Hidden
+                if ($process.ExitCode -eq 0) { return "OK" } else { return "Error Code: $($process.ExitCode)" }
+            } $id
+            if ($res -eq "OK") {
+                $mainStatus.Text = "✅ Device Removed. Refreshing..."
+                $btnScanDrivers.RaiseEvent((New-Object System.Windows.RoutedEventArgs([System.Windows.Controls.Button]::ClickEvent)))
+            }
+            else {
+                $mainStatus.Text = "❌ Failed: $res"
+            }
+        }
+    })
+
+$txtDriverFilter.Add_TextChanged({
+        if ($global:FullDriverList) {
+            $q = $txtDriverFilter.Text
+            $dgDrivers.ItemsSource = @($global:FullDriverList | Where-Object { $_.FriendlyName -match $q -or $_.Class -match $q })
         }
     })
 
