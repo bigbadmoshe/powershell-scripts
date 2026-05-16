@@ -102,7 +102,21 @@ $sessionStats = [PSCustomObject]@{
                         <StackPanel Grid.Column="0" VerticalAlignment="Center">
                             <Grid HorizontalAlignment="Center">
                                 <Ellipse Width="230" Height="230" Stroke="#16161D" StrokeThickness="18"/>
-                                <Ellipse Name="ringProgress" Width="230" Height="230" Stroke="#2A2A2E" StrokeThickness="18" StrokeDashArray="8,2"/>
+                                
+                                <Ellipse Name="ringProgress" Width="230" Height="230" Stroke="#2A2A2E" StrokeThickness="18" StrokeDashArray="8,2">
+                                    <Ellipse.Triggers>
+                                        <EventTrigger RoutedEvent="Loaded">
+                                            <BeginStoryboard>
+                                                <Storyboard>
+                                                    <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                                    From="1.0" To="0.3" Duration="0:0:1.5" 
+                                                                    AutoReverse="True" RepeatBehavior="Forever" />
+                                                </Storyboard>
+                                            </BeginStoryboard>
+                                        </EventTrigger>
+                                    </Ellipse.Triggers>
+                                </Ellipse>
+
                                 <StackPanel VerticalAlignment="Center">
                                     <TextBlock Name="lblBigPing" Text="--" FontSize="76" FontWeight="Black" Foreground="White" HorizontalAlignment="Center"/>
                                     <TextBlock Text="MILLISECONDS" FontSize="11" Foreground="#444" FontWeight="Bold" HorizontalAlignment="Center"/>
@@ -176,22 +190,49 @@ $sessionStats = [PSCustomObject]@{
 
                 <!-- PAGE 2: LOGS -->
                 <Grid Name="pageLogs" Visibility="Collapsed">
-                    <StackPanel>
-                        <TextBlock Text="Events" FontSize="34" Foreground="White" FontWeight="Bold"/>
-                        <TextBlock Text="Detailed packet-by-packet analysis and anomaly detection." Foreground="#555" Margin="0,5,0,20"/>
-                        <ListBox Name="lstLogs" Height="420" Background="#121218" Foreground="#888" BorderThickness="0" FontFamily="Consolas" FontSize="13">
-                             <ListBox.ItemTemplate>
-                                <DataTemplate>
-                                    <Border BorderBrush="#1A1A1F" BorderThickness="0,0,0,1" Padding="5">
-                                        <TextBlock Text="{Binding Display}" Foreground="{Binding Color}"/>
-                                    </Border>
-                                </DataTemplate>
-                             </ListBox.ItemTemplate>
-                        </ListBox>
-                        <StackPanel Orientation="Horizontal" Margin="0,20,0,0">
-                            <Button Name="btnExport" Content="Export Data" Width="160" Height="40" Background="#0078D7" Foreground="White" FontWeight="SemiBold"/>
-                            <Button Name="btnClearLogs" Content="Purge History" Width="130" Height="40" Background="#1A1A1F" Foreground="#666" Margin="10,0"/>
-                        </StackPanel>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <StackPanel Grid.Row="0" Margin="0,0,0,20">
+                        <TextBlock Text="Event Timeline" FontSize="34" Foreground="White" FontWeight="Bold"/>
+                        <TextBlock Text="Detailed telemetry and packet lifecycle analysis." Foreground="#555"/>
+                    </StackPanel>
+
+                    <Border Grid.Row="1" Background="#0C0C0F" CornerRadius="15" BorderBrush="#1F1F24" BorderThickness="1">
+                        <ListView Name="lstLogs" Background="Transparent" BorderThickness="0" Foreground="#AAA" FontFamily="Consolas">
+                            <ListView.View>
+                                <GridView>
+                                    <GridViewColumn Header="TIME" Width="100">
+                                        <GridViewColumn.CellTemplate>
+                                            <DataTemplate><TextBlock Text="{Binding TimestampShort}" Foreground="#555"/></DataTemplate>
+                                        </GridViewColumn.CellTemplate>
+                                    </GridViewColumn>
+                                    <GridViewColumn Header="EVENT" Width="120">
+                                        <GridViewColumn.CellTemplate>
+                                            <DataTemplate><TextBlock Text="{Binding Status}" Foreground="{Binding Color}" FontWeight="Bold"/></DataTemplate>
+                                        </GridViewColumn.CellTemplate>
+                                    </GridViewColumn>
+                                    <GridViewColumn Header="LATENCY" Width="100">
+                                        <GridViewColumn.CellTemplate>
+                                            <DataTemplate><TextBlock Text="{Binding Latency}" Foreground="White"/></DataTemplate>
+                                        </GridViewColumn.CellTemplate>
+                                    </GridViewColumn>
+                                    <GridViewColumn Header="DIAGNOSTIC MESSAGE" Width="400">
+                                        <GridViewColumn.CellTemplate>
+                                            <DataTemplate><TextBlock Text="{Binding Message}" Foreground="#777" FontSize="11"/></DataTemplate>
+                                        </GridViewColumn.CellTemplate>
+                                    </GridViewColumn>
+                                </GridView>
+                            </ListView.View>
+                        </ListView>
+                    </Border>
+
+                    <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,20,0,0">
+                        <Button Name="btnExport" Content="Export CSV" Width="140" Height="40" Background="#0078D7" Foreground="White"/>
+                        <Button Name="btnClearLogs" Content="Clear Buffer" Width="120" Height="40" Background="#1A1A1F" Foreground="#666" Margin="10,0"/>
                     </StackPanel>
                 </Grid>
 
@@ -232,7 +273,7 @@ $sessionStats = [PSCustomObject]@{
                                     </StackPanel>
                                 </Border>
 
-                                <UniformGrid Columns="1">
+                                <StackPanel>
                                     <Border Background="#121218" Margin="0,5" Padding="15" CornerRadius="12">
                                         <StackPanel><TextBlock Text="IPV4 ADDRESS" Foreground="#0078D7" FontSize="10"/><TextBlock Name="txtLocalIP" Text="---" Foreground="White" FontSize="16" FontFamily="Consolas"/></StackPanel>
                                     </Border>
@@ -242,7 +283,7 @@ $sessionStats = [PSCustomObject]@{
                                     <Border Background="#121218" Margin="0,5" Padding="15" CornerRadius="12">
                                         <StackPanel><TextBlock Text="DHCP SERVER" Foreground="#0078D7" FontSize="10"/><TextBlock Name="txtDHCPServer" Text="---" Foreground="White" FontSize="16" FontFamily="Consolas"/></StackPanel>
                                     </Border>
-                                </UniformGrid>
+                                </StackPanel>
                             </StackPanel>
                         </ScrollViewer>
 
@@ -363,17 +404,22 @@ $reader = New-Object System.Xml.XmlNodeReader $xaml
 $window = [Windows.Markup.XamlReader]::Load($reader)
 
 $ui = @{}
-"MainBorder", "navDash", "navLogs", "navInfo", "navSet", "pageDash", "pageLogs", "pageInfo", "pageSet", 
+"navDash", "navLogs", "navInfo", "navSet", "pageDash", "pageLogs", "pageInfo", "pageSet", 
 "btnAction", "editHost", "lblBigPing", "lblHostSub", "ringProgress", "polyline", "canvas", "btnClearLogs",
 "txtMin", "txtAvg", "txtMax", "lstLogs", "btnExport", "txtLocalIP", "txtGateway", "txtPublicIP", "txtDNS",
 "sldThresh", "lblThreshVal", "btnSave", "btnExit", "btnMin", "lblAlert", "txtUptime", "btnRefreshNet",
-"txtJitter", "txtLoss", "txtQuality", "lblStatus", "txtSendRate", "txtRecvRate", "txtAdapterType", 
+"txtJitter", "txtLoss", "txtQuality", "lblStatus", "txtSendRate", "txtRecvRate", 
 "txtAdapterName", "txtLinkSpeed", "editInterval", "chkAutoStart", "chkMinimizeToTray", "editLogPath", 
 "btnBrowseLog", "txtMAC", "txtNetStatus", "txtDHCPServer", "txtISPName", "txtISPCity", "lstActiveConns", 
 "btnFlushDNS", "btnResetStack", "polylineJitter", "limitLine" | ForEach-Object { $ui[$_] = $window.FindName($_) }
 
 function Add-LogEntry {
-    param($Status, $Latency, $Color = "#888")
+    param(
+        [string]$Status, 
+        [int]$Latency, 
+        [string]$Color = "#888",
+        [string]$Message = "Telemetry heartbeat OK"
+    )
     $path = $ui.editLogPath.Text
     if ([string]::IsNullOrWhiteSpace($path)) {
         $path = "$env:USERPROFILE\Desktop\NetPulse_Log.csv"
@@ -390,24 +436,32 @@ function Add-LogEntry {
     }
     $timestamp = Get-Date -f "HH:mm:ss"
     $latText = if ($Latency -eq -1) { "LOST" } else { "$Latency ms" }
+    $diagMsg = $Message
+    if ($Status -eq "SPIKE") { $diagMsg = "Latency exceeded threshold ($($ui.sldThresh.Value)ms)" }
+    if ($Status -eq "LOSS") { $diagMsg = "Request timed out or destination unreachable" }
     $entry = [PSCustomObject]@{
-        Timestamp = (Get-Date -f "yyyy-MM-dd HH:mm:ss")
-        Status    = $Status
-        Latency   = $latText
-        Display   = "[$timestamp] $Status >> $latText"
-        Color     = $Color
+        TimestampFull  = (Get-Date -f "yyyy-MM-dd HH:mm:ss")
+        TimestampShort = $timestamp
+        Status         = $Status.ToUpper()
+        Latency        = $latText
+        Message        = $diagMsg
+        Color          = $Color
     }
     $window.Dispatcher.Invoke({
             $eventLog.Insert(0, $entry)
             if ($eventLog.Count -gt 500) { $eventLog.RemoveAt(500) }
         })
-
     try {
-        $entry | Select-Object Timestamp, Status, Latency | 
-        Export-Csv -Path $path -Append -NoTypeInformation
+        $exportRow = [PSCustomObject]@{
+            Date_Time          = $entry.TimestampFull
+            Event_Status       = $entry.Status
+            Latency_MS         = $entry.Latency
+            Diagnostic_Details = $entry.Message
+        }
+        $exportRow | Export-Csv -Path $config.LogPath -Append -NoTypeInformation -Encoding UTF8
     }
     catch {
-        $ui.lblAlert.Text = "LOG ERROR: Check Path"
+        $ui.lblAlert.Text = "LOG WRITE ERROR"
     }
 }
 
@@ -421,7 +475,6 @@ function Get-NetworkSummary {
         if ($null -eq $net) {
             $net = Get-NetIPConfiguration | Where-Object { $null -ne $_.IPv4DefaultGateway } | Select-Object -First 1
         }
-
         $adapter = $net.NetAdapter
         $wmi = Get-CimInstance Win32_NetworkAdapterConfiguration | Where-Object { $_.InterfaceIndex -eq $net.InterfaceIndex }
         $ui.txtLocalIP.Text = $net.IPv4Address.IPAddress
@@ -646,7 +699,14 @@ $ui.btnAction.Add_Click({
 
 $ui.navDash.Add_Click({ $ui.pageDash.Visibility = "Visible"; $ui.pageLogs.Visibility = $ui.pageInfo.Visibility = $ui.pageSet.Visibility = "Collapsed" })
 $ui.navLogs.Add_Click({ $ui.pageLogs.Visibility = "Visible"; $ui.pageDash.Visibility = $ui.pageInfo.Visibility = $ui.pageSet.Visibility = "Collapsed" })
-$ui.navInfo.Add_Click({ Get-NetworkSummary; Get-ActiveConnections; $ui.pageInfo.Visibility = "Visible"; $ui.pageDash.Visibility = $ui.pageLogs.Visibility = $ui.pageSet.Visibility = "Collapsed" })
+$ui.navInfo.Add_Click({
+        Get-Job | Remove-Job -Force
+        Get-NetworkSummary
+        Get-ActiveConnections
+        $ui.pageInfo.Visibility = "Visible"
+        $ui.pageDash.Visibility = $ui.pageLogs.Visibility = $ui.pageSet.Visibility = "Collapsed" 
+    })
+    
 $ui.navSet.Add_Click({ $ui.pageSet.Visibility = "Visible"; $ui.pageDash.Visibility = $ui.pageLogs.Visibility = $ui.pageInfo.Visibility = "Collapsed" })
 
 $ui.btnSave.Add_Click({
@@ -683,9 +743,18 @@ $ui.btnExport.Add_Click({
             [System.Windows.MessageBox]::Show("No data to export!")
             return
         }
-        $eventLog | Select-Object Timestamp, Status, Latency | 
-        Export-Csv -Path $config.LogPath -NoTypeInformation
-        [System.Windows.MessageBox]::Show("Log exported to: $($config.LogPath)") 
+        try {
+            $eventLog | Select-Object `
+            @{Name = "Date_Time"; Expression = { $_.TimestampFull } }, 
+            @{Name = "Event_Status"; Expression = { $_.Status } }, 
+            @{Name = "Latency_MS"; Expression = { $_.Latency } }, 
+            @{Name = "Diagnostic_Details"; Expression = { $_.Message } } | 
+            Export-Csv -Path $config.LogPath -NoTypeInformation -Encoding UTF8
+            [System.Windows.MessageBox]::Show("Telemetry log exported successfully to:`n$($config.LogPath)", "Export Complete") 
+        }
+        catch {
+            [System.Windows.MessageBox]::Show("Export failed! Is the file open in Excel?`n`nError: $($_.Exception.Message)", "File Error", "OK", "Error")
+        }
     })
 
 $ui.lstLogs.ItemsSource = $eventLog
@@ -728,6 +797,7 @@ $ui.btnResetStack.Add_Click({
             [System.Windows.MessageBox]::Show("Reset complete. Restart highly recommended.")
         }
     })
+
 $ui.editLogPath.Text = $config.LogPath
 $ui.editHost.Text = $config.Host
 $ui.sldThresh.Value = $config.Threshold
