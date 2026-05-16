@@ -62,6 +62,7 @@ $sessionStats = [PSCustomObject]@{
                         <TextBlock Text="&#xEB55;" FontFamily="Segoe MDL2 Assets" FontSize="32" Foreground="#0078D7" HorizontalAlignment="Center" Margin="0,0,0,50"/>
                         <Button Name="navDash" Content="&#xE80F;" ToolTip="Command Center" FontFamily="Segoe MDL2 Assets" Height="70" Background="Transparent" BorderThickness="0" Foreground="White" FontSize="26"/>
                         <Button Name="navLogs" Content="&#xE81C;" ToolTip="Traffic Logs" FontFamily="Segoe MDL2 Assets" Height="70" Background="Transparent" BorderThickness="0" Foreground="#555" FontSize="26"/>
+                        <Button Name="navTrace" Content="&#xE909;" ToolTip="Visual Traceroute" FontFamily="Segoe MDL2 Assets" Height="70" Background="Transparent" BorderThickness="0" Foreground="#555" FontSize="26"/>
                         <Button Name="navInfo" Content="&#xE946;" ToolTip="Advanced Diagnostics" FontFamily="Segoe MDL2 Assets" Height="70" Background="Transparent" BorderThickness="0" Foreground="#555" FontSize="26"/>
                         <Button Name="navSet" Content="&#xE713;" ToolTip="Engine Settings" FontFamily="Segoe MDL2 Assets" Height="70" Background="Transparent" BorderThickness="0" Foreground="#555" FontSize="26"/>
                     </StackPanel>
@@ -152,11 +153,21 @@ $sessionStats = [PSCustomObject]@{
                                             <TextBlock Text="LIMIT" Foreground="#666" FontSize="9"/>
                                         </StackPanel>
                                     </Grid>
-                                    <Canvas Name="canvas" Height="150" Background="Transparent" ClipToBounds="True">
-                                        <Line Name="limitLine" Stroke="Red" StrokeThickness="1" StrokeDashArray="4,4" Opacity="0.4" Visibility="Collapsed"/>
-                                        <Polyline Name="polylineJitter" Stroke="#FFB900" StrokeThickness="1.5" StrokeDashArray="2,1" Opacity="0.6"/>
-                                        <Polyline Name="polyline" Stroke="#0078D7" StrokeThickness="3" StrokeLineJoin="Round"/>
-                                    </Canvas>
+                                    <Grid Name="graphContainer" Height="150">
+                                        <Canvas Name="canvasLabels" HorizontalAlignment="Left" Width="30" Panel.ZIndex="5" IsHitTestVisible="False"/>
+                                        
+                                        <Canvas Name="canvas" Background="Transparent" ClipToBounds="True" Margin="30,0,0,0">
+                                            <Canvas Name="canvasGrid" IsHitTestVisible="False" Opacity="0.1"/>
+                                            <Polygon Name="polyFill" Fill="#0078D7" Opacity="0.15" />
+                                            <Line Name="limitLine" Stroke="Red" StrokeThickness="1" StrokeDashArray="4,4" Opacity="0.4" Visibility="Collapsed"/>
+                                            <Polyline Name="polylineJitter" Stroke="#FFB900" StrokeThickness="1" StrokeDashArray="2,2" Opacity="0.5"/>
+                                            <Polyline Name="polyline" Stroke="#0078D7" StrokeThickness="2.5" StrokeLineJoin="Round">
+                                                <Polyline.Effect>
+                                                    <DropShadowEffect BlurRadius="10" Color="#0078D7" Opacity="0.4" ShadowDepth="0"/>
+                                                </Polyline.Effect>
+                                            </Polyline>
+                                        </Canvas>
+                                    </Grid>
                                 </StackPanel>
                             </Border>
                             
@@ -236,7 +247,74 @@ $sessionStats = [PSCustomObject]@{
                     </StackPanel>
                 </Grid>
 
-                <!-- PAGE 3: ADVANCED DIAGNOSTICS (EXPANDED) -->
+                <!-- PAGE 3: TRACEROUTE -->
+                <Grid Name="pageTrace" Visibility="Collapsed">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <Grid Grid.Row="0" Margin="0,0,0,25">
+                        <StackPanel>
+                            <TextBlock Text="Path Analysis" FontSize="34" Foreground="White" FontWeight="Bold"/>
+                            <TextBlock Text="Hop-by-hop telemetry to destination" Foreground="#555" Margin="2,0,0,10"/>
+                            <Border Background="#121218" CornerRadius="12" Padding="5" BorderBrush="#25252A" BorderThickness="1" HorizontalAlignment="Left">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBox Name="editTraceHost" Text="8.8.8.8" Width="250" VerticalAlignment="Center" Background="Transparent" Foreground="White" BorderThickness="0" Margin="10,0" FontFamily="Consolas" FontSize="16"/>
+                                    <Button Name="btnStartTrace" Content="INITIATE TRACE" Width="140" Height="40" Background="#0078D7" Foreground="White" FontWeight="Bold">
+                                        <Button.Resources><Style TargetType="Border"><Setter Property="CornerRadius" Value="8"/></Style></Button.Resources>
+                                    </Button>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </Grid>
+
+                    <Border Grid.Row="1" Background="#0C0C0F" CornerRadius="20" BorderBrush="#1F1F24" BorderThickness="1">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="20">
+                            <ItemsControl Name="lstTrace">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Margin="0,0,0,12">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="40"/> <ColumnDefinition Width="*"/>  </Grid.ColumnDefinitions>
+                                            
+                                            <Rectangle Grid.Column="0" Width="2" Fill="#1F1F24" HorizontalAlignment="Center" Margin="0,20,0,-15"/>
+                                            <Ellipse Grid.Column="0" Width="12" Height="12" Fill="{Binding Color}" VerticalAlignment="Top" Margin="0,14,0,0">
+                                                <Ellipse.Effect>
+                                                    <DropShadowEffect BlurRadius="10" Color="{Binding ColorHex}" Opacity="0.6" ShadowDepth="0"/>
+                                                </Ellipse.Effect>
+                                            </Ellipse>
+
+                                            <Border Grid.Column="1" Background="#121218" CornerRadius="12" Padding="15" BorderBrush="#1F1F24" BorderThickness="1">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="50"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    
+                                                    <TextBlock Text="{Binding Hop}" Foreground="#333" FontSize="24" FontWeight="Black" VerticalAlignment="Center"/>
+                                                    
+                                                    <StackPanel Grid.Column="1" Margin="15,0">
+                                                        <TextBlock Text="{Binding IP}" Foreground="White" FontSize="15" FontWeight="Bold" FontFamily="Consolas"/>
+                                                        <TextBlock Text="{Binding Hostname}" Foreground="#555" FontSize="11" TextWrapping="Wrap"/>
+                                                    </StackPanel>
+
+                                                    <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding Latency}" Foreground="{Binding Color}" FontSize="18" FontWeight="Bold" HorizontalAlignment="Right" FontFamily="Consolas"/>
+                                                        <TextBlock Text="LATENCY" Foreground="#333" FontSize="8" FontWeight="Bold" HorizontalAlignment="Right"/>
+                                                    </StackPanel>
+                                                </Grid>
+                                            </Border>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </Border>
+                </Grid>
+
+                <!-- PAGE 4: ADVANCED DIAGNOSTICS (EXPANDED) -->
                 <Grid Name="pageInfo" Visibility="Collapsed">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
@@ -345,7 +423,7 @@ $sessionStats = [PSCustomObject]@{
                     </Grid>
                 </Grid>
 
-                <!-- PAGE 4: SETTINGS -->
+                <!-- PAGE 5: SETTINGS -->
                 <StackPanel Name="pageSet" Visibility="Collapsed">
                     <TextBlock Text="Settings" FontSize="34" Foreground="White" FontWeight="Bold" Margin="0,0,0,25"/>
                     
@@ -400,6 +478,23 @@ $sessionStats = [PSCustomObject]@{
 </Window>
 "@
 
+[xml]$splashXaml = @"
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        Title="Loading" Height="200" Width="400" 
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        WindowStartupLocation="CenterScreen" Topmost="True">
+    <Border CornerRadius="20" Background="#121218" BorderBrush="#0078D7" BorderThickness="2">
+        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+            <TextBlock Text="NetPulse" FontSize="28" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center"/>
+            <TextBlock Text="Initializing..." FontSize="14" Foreground="#555" HorizontalAlignment="Center" Margin="0,10,0,10"/>
+        </StackPanel>
+    </Border>
+</Window>
+"@
+
+$splashReader = New-Object System.Xml.XmlNodeReader $splashXaml
+$splashScreen = [Windows.Markup.XamlReader]::Load($splashReader)
+
 $reader = New-Object System.Xml.XmlNodeReader $xaml
 $window = [Windows.Markup.XamlReader]::Load($reader)
 
@@ -411,7 +506,8 @@ $ui = @{}
 "txtJitter", "txtLoss", "txtQuality", "lblStatus", "txtSendRate", "txtRecvRate", 
 "txtAdapterName", "txtLinkSpeed", "editInterval", "chkAutoStart", "chkMinimizeToTray", "editLogPath", 
 "btnBrowseLog", "txtMAC", "txtNetStatus", "txtDHCPServer", "txtISPName", "txtISPCity", "lstActiveConns", 
-"btnFlushDNS", "btnResetStack", "polylineJitter", "limitLine" | ForEach-Object { $ui[$_] = $window.FindName($_) }
+"btnFlushDNS", "btnResetStack", "polylineJitter", "limitLine", "polyFill", "canvasGrid", "canvasLabels",
+"navTrace", "pageTrace", "editTraceHost", "btnStartTrace", "lstTrace" | ForEach-Object { $ui[$_] = $window.FindName($_) }
 
 function Add-LogEntry {
     param(
@@ -531,27 +627,52 @@ function Start-StabilityGraph {
     $w = $ui.canvas.ActualWidth
     $h = $ui.canvas.ActualHeight
     $thresh = $ui.sldThresh.Value
-    $maxVal = ($latArr + $jitArr + @($thresh) | Measure-Object -Maximum).Maximum
-    $scaleY = $h / ($maxVal * 1.1)
-    $latPoints = New-Object System.Windows.Media.PointCollection
-    $jitPoints = New-Object System.Windows.Media.PointCollection
+    $maxObserved = ($latArr + $jitArr | Measure-Object -Maximum).Maximum
+    $maxVal = [Math]::Max($maxObserved, $thresh) * 1.2
+    if ($maxVal -lt 50) { $maxVal = 50 }
+    $scaleY = $h / $maxVal
     $step = $w / ($latArr.Count - 1)
+    $latPoints = New-Object System.Windows.Media.PointCollection
+    $fillPoints = New-Object System.Windows.Media.PointCollection
+    $jitPoints = New-Object System.Windows.Media.PointCollection
+    $fillPoints.Add((New-Object System.Windows.Point(0, $h)))
     for ($i = 0; $i -lt $latArr.Count; $i++) {
         $x = $i * $step
-        $val = $latArr[$i]
-        $displayVal = if ($val -eq -1) { $maxVal } else { $val }
-        $yLat = $h - ($displayVal * $scaleY)
-        $latPoints.Add((New-Object System.Windows.Point($x, $yLat)))
+        $val = if ($latArr[$i] -eq -1) { $maxVal } else { $latArr[$i] }
+        $yLat = $h - ($val * $scaleY)
+        $p = New-Object System.Windows.Point($x, $yLat)
+        $latPoints.Add($p)
+        $fillPoints.Add($p)
         $yJit = $h - ($jitArr[$i] * $scaleY)
         $jitPoints.Add((New-Object System.Windows.Point($x, $yJit)))
     }
+    $fillPoints.Add((New-Object System.Windows.Point($w, $h)))
     $window.Dispatcher.Invoke({
             $ui.polyline.Points = $latPoints
+            $ui.polyFill.Points = $fillPoints
             $ui.polylineJitter.Points = $jitPoints
             $ui.limitLine.Visibility = "Visible"
-            $ui.limitLine.X1 = 0
-            $ui.limitLine.X2 = $w
-            $ui.limitLine.Y1 = $ui.limitLine.Y2 = ($h - ($thresh * $scaleY))
+            $ui.limitLine.X1 = 0; $ui.limitLine.X2 = $w
+            $yLimit = $h - ($thresh * $scaleY)
+            $ui.limitLine.Y1 = $ui.limitLine.Y2 = $yLimit
+            $ui.canvasGrid.Children.Clear()
+            $ui.canvasLabels.Children.Clear()
+            $interval = if ($maxVal -gt 500) { 200 } elseif ($maxVal -gt 200) { 100 } elseif ($maxVal -gt 100) { 50 } else { 25 }
+            for ($g = 0; $g -lt $maxVal; $g += $interval) {
+                if ($g -eq 0) { continue }
+                $yGrid = $h - ($g * $scaleY)
+                $line = New-Object System.Windows.Shapes.Line
+                $line.X1 = 0; $line.X2 = $w; $line.Y1 = $line.Y2 = $yGrid
+                $line.Stroke = [System.Windows.Media.Brushes]::White
+                $line.StrokeThickness = 0.5
+                [void]$ui.canvasGrid.Children.Add($line)
+                $lbl = New-Object System.Windows.Controls.TextBlock
+                $lbl.Text = "$($g)ms"
+                $lbl.FontSize = 9
+                $lbl.Foreground = [System.Windows.Media.Brushes]::Gray
+                [System.Windows.Controls.Canvas]::SetTop($lbl, $yGrid - 6)
+                [void]$ui.canvasLabels.Children.Add($lbl)
+            }
         })
 }
 
@@ -574,6 +695,15 @@ function Get-ActiveConnections {
     catch {
         Write-Host "Socket Monitor Error: $_"
     }
+}
+
+function Show-Page ($pageToShow, $navButton) {
+    $allPages = $ui.pageDash, $ui.pageLogs, $ui.pageInfo, $ui.pageSet, $ui.pageTrace
+    foreach ($page in $allPages) { $page.Visibility = "Collapsed" }
+    $allNavs = $ui.navDash, $ui.navLogs, $ui.navInfo, $ui.navSet, $ui.navTrace
+    foreach ($nav in $allNavs) { $nav.Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#555") }
+    $pageToShow.Visibility = "Visible"
+    $navButton.Foreground = [System.Windows.Media.Brushes]::White
 }
 
 $notifyIcon = New-Object System.Windows.Forms.NotifyIcon
@@ -697,8 +827,12 @@ $ui.btnAction.Add_Click({
         }
     })
 
-$ui.navDash.Add_Click({ $ui.pageDash.Visibility = "Visible"; $ui.pageLogs.Visibility = $ui.pageInfo.Visibility = $ui.pageSet.Visibility = "Collapsed" })
-$ui.navLogs.Add_Click({ $ui.pageLogs.Visibility = "Visible"; $ui.pageDash.Visibility = $ui.pageInfo.Visibility = $ui.pageSet.Visibility = "Collapsed" })
+$ui.navDash.Add_Click({ Show-Page $ui.pageDash $ui.navDash })
+$ui.navLogs.Add_Click({ Show-Page $ui.pageLogs $ui.navLogs })
+$ui.navInfo.Add_Click({ Get-NetworkSummary; Get-ActiveConnections; Show-Page $ui.pageInfo $ui.navInfo })
+$ui.navSet.Add_Click({ Show-Page $ui.pageSet $ui.navSet })
+$ui.navTrace.Add_Click({ Show-Page $ui.pageTrace $ui.navTrace })
+
 $ui.navInfo.Add_Click({
         Get-Job | Remove-Job -Force
         Get-NetworkSummary
@@ -772,6 +906,60 @@ $ui.btnExit.Add_Click({
         Stop-Process -Id $PID 
     })
 
+$ui.btnStartTrace.Add_Click({
+        $target = $ui.editTraceHost.Text
+        $ui.btnStartTrace.IsEnabled = $false
+        $ui.btnStartTrace.Content = "TRACING..."
+        $traceCollection = New-Object System.Collections.ObjectModel.ObservableCollection[PSCustomObject]
+        $ui.lstTrace.ItemsSource = $traceCollection
+        $sBlock = {
+            param($target, $traceCollection, $window)
+            try {
+                for ($hop = 1; $hop -le 30; $hop++) {
+                    $ping = New-Object System.Net.NetworkInformation.Ping
+                    $options = New-Object System.Net.NetworkInformation.PingOptions($hop, $true)
+                    $sw = [System.Diagnostics.Stopwatch]::StartNew()
+                    try {
+                        $reply = $ping.Send($target, 1200, [byte[]](1..32), $options)
+                        $sw.Stop()
+                        $lat = $sw.ElapsedMilliseconds
+                        $ip = if ($reply.Status -ne "TimedOut" -and $null -ne $reply.Address) { $reply.Address.ToString() } else { "???" }
+                        $colorHex = "#0078D7"
+                        if ($lat -gt 100) { $colorHex = "#FFB900" }
+                        if ($lat -gt 250 -or $reply.Status -eq "TimedOut") { $colorHex = "#E81123" }
+                        $hostName = "Resolving..."
+                        if ($ip -ne "???") {
+                            try { $hostName = [System.Net.Dns]::GetHostEntry($ip).HostName } catch { $hostName = "No PTR Record" }
+                        }
+                        $window.Dispatcher.Invoke({
+                                $brush = [System.Windows.Media.BrushConverter]::new().ConvertFromString($colorHex)
+                                $entry = [PSCustomObject]@{
+                                    Hop      = $hop.ToString("00")
+                                    IP       = $ip
+                                    Latency  = if ($ip -eq "???") { "LOST" } else { "$($lat)ms" }
+                                    Hostname = $hostName.ToUpper()
+                                    ColorHex = $colorHex
+                                    Color    = $brush
+                                }
+                                $traceCollection.Add($entry)
+                            })
+                        if ($reply.Status -eq "Success") { break }
+                    }
+                    catch { break }
+                }
+            }
+            finally {
+                $window.Dispatcher.Invoke({
+                        $btn = $window.FindName("btnStartTrace")
+                        $btn.IsEnabled = $true
+                        $btn.Content = "INITIATE TRACE"
+                    })
+            }
+        }
+        $psInstance = [PowerShell]::Create().AddScript($sBlock).AddArgument($target).AddArgument($traceCollection).AddArgument($window)
+        [void]$psInstance.BeginInvoke()
+    })
+
 $ui.btnMin.Add_Click({
         if ($ui.chkMinimizeToTray.IsChecked -eq $true) {
             $window.Hide()
@@ -810,5 +998,10 @@ if ($config.AutoStart) {
     $ui.btnAction.Background = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#1A1A1F")
 }
 
+$splashScreen.Show()
+[System.Windows.Forms.Application]::DoEvents()
 Get-NetworkSummary
+$window.Add_Loaded({
+        $splashScreen.Close()
+    })
 $window.ShowDialog() | Out-Null
