@@ -63,6 +63,7 @@ $sessionStats = [PSCustomObject]@{
                         <Button Name="navDash" Content="&#xE80F;" ToolTip="Command Center" FontFamily="Segoe MDL2 Assets" Height="70" Background="Transparent" BorderThickness="0" Foreground="White" FontSize="26"/>
                         <Button Name="navLogs" Content="&#xE81C;" ToolTip="Traffic Logs" FontFamily="Segoe MDL2 Assets" Height="70" Background="Transparent" BorderThickness="0" Foreground="#555" FontSize="26"/>
                         <Button Name="navTrace" Content="&#xE909;" ToolTip="Visual Traceroute" FontFamily="Segoe MDL2 Assets" Height="70" Background="Transparent" BorderThickness="0" Foreground="#555" FontSize="26"/>
+                        <Button Name="navSpeed" Content="&#xE945;" ToolTip="Speed Test" FontFamily="Segoe MDL2 Assets" Height="70" Background="Transparent" BorderThickness="0" Foreground="#555" FontSize="26"/>
                         <Button Name="navInfo" Content="&#xE946;" ToolTip="Advanced Diagnostics" FontFamily="Segoe MDL2 Assets" Height="70" Background="Transparent" BorderThickness="0" Foreground="#555" FontSize="26"/>
                         <Button Name="navSet" Content="&#xE713;" ToolTip="Engine Settings" FontFamily="Segoe MDL2 Assets" Height="70" Background="Transparent" BorderThickness="0" Foreground="#555" FontSize="26"/>
                     </StackPanel>
@@ -314,7 +315,69 @@ $sessionStats = [PSCustomObject]@{
                     </Border>
                 </Grid>
 
-                <!-- PAGE 4: ADVANCED DIAGNOSTICS (EXPANDED) -->
+                <!-- PAGE 4: SPEED TEST -->
+                <Grid Name="pageSpeed" Visibility="Collapsed">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <StackPanel Grid.Row="0" Margin="0,0,0,25">
+                        <TextBlock Text="Performance" FontSize="34" Foreground="White" FontWeight="Bold"/>
+                        <TextBlock Text="Network bandwidth and throughput verification" Foreground="#555"/>
+                    </StackPanel>
+
+                    <Grid Grid.Row="1">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0" Margin="0,0,20,0">
+                            <Border Background="#121218" CornerRadius="20" Padding="30" BorderBrush="#1F1F24" BorderThickness="1">
+                                <StackPanel>
+                                    <TextBlock Text="DOWNLOAD" Foreground="#0078D7" FontWeight="Bold" FontSize="12" HorizontalAlignment="Center"/>
+                                    <TextBlock Name="txtDownSpeed" Text="0.0" FontSize="64" FontWeight="Black" Foreground="White" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="Mbps" Foreground="#444" FontSize="14" HorizontalAlignment="Center" Margin="0,-10,0,20"/>
+                                    <ProgressBar Name="pbDown" Height="8" Background="#1A1A1F" Foreground="#0078D7" BorderThickness="0"/>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Background="#121218" CornerRadius="20" Padding="30" BorderBrush="#1F1F24" BorderThickness="1" Margin="0,20,0,0">
+                                <StackPanel>
+                                    <TextBlock Text="UPLOAD" Foreground="#44E811" FontWeight="Bold" FontSize="12" HorizontalAlignment="Center"/>
+                                    <TextBlock Name="txtUpSpeed" Text="0.0" FontSize="64" FontWeight="Black" Foreground="White" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="Mbps" Foreground="#444" FontSize="14" HorizontalAlignment="Center" Margin="0,-10,0,20"/>
+                                    <ProgressBar Name="pbUp" Height="8" Background="#1A1A1F" Foreground="#44E811" BorderThickness="0"/>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="1">
+                            <Button Name="btnRunSpeed" Content="RUN TEST" Height="80" Background="#0078D7" Foreground="White" FontSize="20" FontWeight="Bold">
+                                <Button.Resources><Style TargetType="Border"><Setter Property="CornerRadius" Value="15"/></Style></Button.Resources>
+                            </Button>
+                            
+                            <Border Background="#0C0C0F" Margin="0,20,0,0" CornerRadius="15" Padding="20" BorderBrush="#1F1F24" BorderThickness="1">
+                                <StackPanel>
+                                    <TextBlock Text="TEST PARAMETERS" Foreground="#555" FontWeight="Bold" FontSize="11" Margin="0,0,0,15"/>
+                                    <Grid Margin="0,5">
+                                        <TextBlock Text="Server" Foreground="#888"/>
+                                        <TextBlock Text="Ookla®" Foreground="White" HorizontalAlignment="Right"/>
+                                    </Grid>
+                                    <Grid Margin="0,5">
+                                        <TextBlock Text="Provider" Foreground="#888"/>
+                                        <TextBlock Text="Ookla Speedtest CLI" Foreground="White" HorizontalAlignment="Right"/>
+                                    </Grid>
+                                    <Separator Background="#1F1F24" Margin="0,15"/>
+                                    <TextBlock Name="txtSpeedStatus" Text="Ready to analyze..." Foreground="#0078D7" HorizontalAlignment="Center" FontWeight="SemiBold"/>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </Grid>
+                </Grid>
+
+                <!-- PAGE 5: ADVANCED DIAGNOSTICS (EXPANDED) -->
                 <Grid Name="pageInfo" Visibility="Collapsed">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
@@ -423,7 +486,7 @@ $sessionStats = [PSCustomObject]@{
                     </Grid>
                 </Grid>
 
-                <!-- PAGE 5: SETTINGS -->
+                <!-- PAGE 6: SETTINGS -->
                 <StackPanel Name="pageSet" Visibility="Collapsed">
                     <TextBlock Text="Settings" FontSize="34" Foreground="White" FontWeight="Bold" Margin="0,0,0,25"/>
                     
@@ -507,7 +570,8 @@ $ui = @{}
 "txtAdapterName", "txtLinkSpeed", "editInterval", "chkAutoStart", "chkMinimizeToTray", "editLogPath", 
 "btnBrowseLog", "txtMAC", "txtNetStatus", "txtDHCPServer", "txtISPName", "txtISPCity", "lstActiveConns", 
 "btnFlushDNS", "btnResetStack", "polylineJitter", "limitLine", "polyFill", "canvasGrid", "canvasLabels",
-"navTrace", "pageTrace", "editTraceHost", "btnStartTrace", "lstTrace" | ForEach-Object { $ui[$_] = $window.FindName($_) }
+"navTrace", "pageTrace", "editTraceHost", "btnStartTrace", "lstTrace",
+"navSpeed", "pageSpeed", "txtDownSpeed", "txtUpSpeed", "pbDown", "pbUp", "btnRunSpeed", "txtSpeedStatus" | ForEach-Object { $ui[$_] = $window.FindName($_) }
 
 function Add-LogEntry {
     param(
@@ -698,22 +762,30 @@ function Get-ActiveConnections {
 }
 
 function Show-Page ($pageToShow, $navButton) {
-    $allPages = $ui.pageDash, $ui.pageLogs, $ui.pageInfo, $ui.pageSet, $ui.pageTrace
-    foreach ($page in $allPages) { $page.Visibility = "Collapsed" }
-    $allNavs = $ui.navDash, $ui.navLogs, $ui.navInfo, $ui.navSet, $ui.navTrace
-    foreach ($nav in $allNavs) { $nav.Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#555") }
+    $allPages = $ui.pageDash, $ui.pageLogs, $ui.pageInfo, $ui.pageSet, $ui.pageTrace, $ui.pageSpeed
+    foreach ($page in $allPages) { 
+        if ($null -ne $page) { $page.Visibility = "Collapsed" } 
+    }
+    $allNavs = $ui.navDash, $ui.navLogs, $ui.navInfo, $ui.navSet, $ui.navTrace, $ui.navSpeed
+    foreach ($nav in $allNavs) { 
+        if ($null -ne $nav) { $nav.Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#555") } 
+    }
     $pageToShow.Visibility = "Visible"
     $navButton.Foreground = [System.Windows.Media.Brushes]::White
 }
+
+$pingProvider = New-Object System.Net.NetworkInformation.Ping
+$timer = New-Object System.Windows.Threading.DispatcherTimer
+$timer.Interval = [TimeSpan]::FromSeconds(1)
+$prevSent = 0; $prevRecv = 0
 
 $notifyIcon = New-Object System.Windows.Forms.NotifyIcon
 $signature = @"
 [DllImport("shell32.dll", CharSet = CharSet.Auto)]
 public static extern IntPtr ExtractIcon(IntPtr hInst, string lpszExeFileName, int nIconIndex);
 "@
-Add-Type -MemberDefinition $signature -Name "IconExtractor" -Namespace "Win32" -PassThru
+Add-Type -MemberDefinition $signature -Name "IconExtractor" -Namespace "Win32" -PassThru | Out-Null
 $iconHandle = [Win32.IconExtractor]::ExtractIcon(0, "shell32.dll", 14)
-
 if ($iconHandle -ne [IntPtr]::Zero) {
     $notifyIcon.Icon = [System.Drawing.Icon]::FromHandle($iconHandle)
 }
@@ -722,18 +794,64 @@ else {
 }
 $notifyIcon.Text = "NetPulse"
 $notifyIcon.Visible = $false
-
-$notifyIcon.Add_DoubleClick({
-        $window.Show()
-        $window.WindowState = "Normal"
-        $window.Activate()
-        $notifyIcon.Visible = $false
+$contextMenu = New-Object System.Windows.Forms.ContextMenuStrip
+$restoreItem = New-Object System.Windows.Forms.ToolStripMenuItem
+$restoreItem.Text = "Restore"
+$restoreItem.Add_Click({
+        $window.Dispatcher.Invoke([Action] {
+                $window.Show()
+                $window.WindowState = "Normal"
+                $window.Activate()
+                $notifyIcon.Visible = $false
+            })
     })
 
-$pingProvider = New-Object System.Net.NetworkInformation.Ping
-$timer = New-Object System.Windows.Threading.DispatcherTimer
-$timer.Interval = [TimeSpan]::FromSeconds(1)
-$prevSent = 0; $prevRecv = 0
+$contextMenu.Items.Add($restoreItem)
+$exitItem = New-Object System.Windows.Forms.ToolStripMenuItem
+$exitItem.Text = "Exit"
+
+$exitItem.Add_Click({
+        $window.Dispatcher.Invoke([Action] {
+                $timer.Stop()
+                $notifyIcon.Visible = $false
+                if ($iconHandle) { [IconHelper]::DestroyIcon($iconHandle) }
+                $notifyIcon.Dispose()
+                $window.Close()
+            })
+    })
+
+$contextMenu.Items.Add($exitItem)
+$notifyIcon.ContextMenuStrip = $contextMenu
+
+$notifyIcon.Add_DoubleClick({
+        $window.Dispatcher.Invoke([Action] {
+                if (-not $window.IsVisible) {
+                    $window.Show()
+                }
+                $window.WindowState = "Normal"
+                $window.Activate()
+                $notifyIcon.Visible = $false
+            })
+    })
+
+$ui.btnMin.Add_Click({
+        if ($ui.chkMinimizeToTray.IsChecked -eq $true) {
+            $window.Hide()
+            $notifyIcon.Visible = $true
+            $notifyIcon.ShowBalloonTip(2000, "NetPulse", "Application minimized to tray. Double-click to restore.", [System.Windows.Forms.ToolTipIcon]::Info)
+        }
+        else {
+            $window.WindowState = "Minimized"
+        }
+    })
+
+$window.Add_Closing({
+        param($closingSender, $e)
+        if ($ui.chkMinimizeToTray.IsChecked -eq $true -and $notifyIcon.Visible) {
+            $e.Cancel = $true
+            $window.Hide()
+        }
+    })
 
 $timer.Add_Tick({
         $sessionStats.TotalPings++
@@ -829,19 +947,14 @@ $ui.btnAction.Add_Click({
 
 $ui.navDash.Add_Click({ Show-Page $ui.pageDash $ui.navDash })
 $ui.navLogs.Add_Click({ Show-Page $ui.pageLogs $ui.navLogs })
-$ui.navInfo.Add_Click({ Get-NetworkSummary; Get-ActiveConnections; Show-Page $ui.pageInfo $ui.navInfo })
-$ui.navSet.Add_Click({ Show-Page $ui.pageSet $ui.navSet })
-$ui.navTrace.Add_Click({ Show-Page $ui.pageTrace $ui.navTrace })
-
-$ui.navInfo.Add_Click({
-        Get-Job | Remove-Job -Force
+$ui.navInfo.Add_Click({ 
         Get-NetworkSummary
         Get-ActiveConnections
-        $ui.pageInfo.Visibility = "Visible"
-        $ui.pageDash.Visibility = $ui.pageLogs.Visibility = $ui.pageSet.Visibility = "Collapsed" 
+        Show-Page $ui.pageInfo $ui.navInfo 
     })
-    
-$ui.navSet.Add_Click({ $ui.pageSet.Visibility = "Visible"; $ui.pageDash.Visibility = $ui.pageLogs.Visibility = $ui.pageInfo.Visibility = "Collapsed" })
+$ui.navSet.Add_Click({ Show-Page $ui.pageSet $ui.navSet })
+$ui.navTrace.Add_Click({ Show-Page $ui.pageTrace $ui.navTrace })
+$ui.navSpeed.Add_Click({ Show-Page $ui.pageSpeed $ui.navSpeed })
 
 $ui.btnSave.Add_Click({
         $currentPath = $ui.editLogPath.Text
@@ -960,15 +1073,54 @@ $ui.btnStartTrace.Add_Click({
         [void]$psInstance.BeginInvoke()
     })
 
-$ui.btnMin.Add_Click({
-        if ($ui.chkMinimizeToTray.IsChecked -eq $true) {
-            $window.Hide()
-            $notifyIcon.Visible = $true
-            $notifyIcon.ShowBalloonTip(2000, "NetPulse", "App minimized to tray.", "Info")
+$ui.btnRunSpeed.Add_Click({
+        $ui.btnRunSpeed.IsEnabled = $false
+        $ui.btnRunSpeed.Content = "PREPARING..."
+        $ui.txtSpeedStatus.Text = "Checking engine..."
+        $speedBlock = {
+            param($window, $ui, $appDataFolder)
+            $cliPath = Join-Path $appDataFolder "speedtest.exe"
+            $zipPath = Join-Path $appDataFolder "ookla.zip"
+            try {
+                if (-not (Test-Path $cliPath)) {
+                    $window.Dispatcher.Invoke({ $ui.txtSpeedStatus.Text = "Downloading engine..." })
+                    $downloadUrl = "https://install.speedtest.net/app/cli/ookla-speedtest-1.2.0-win64.zip"
+                    Invoke-WebRequest -Uri $downloadUrl -OutFile $zipPath -UseBasicParsing
+                    $window.Dispatcher.Invoke({ $ui.txtSpeedStatus.Text = "Extracting..." })
+                    Expand-Archive -Path $zipPath -DestinationPath $appDataFolder -Force
+                    Remove-Item $zipPath -Force
+                }
+                $window.Dispatcher.Invoke({ 
+                        $ui.txtSpeedStatus.Text = "Finding server..." 
+                        $ui.pbDown.Value = 20
+                    })
+                $ooklaRaw = & $cliPath --format=json --accept-license --accept-gdpr
+                $res = $ooklaRaw | ConvertFrom-Json
+                $downMbps = [Math]::Round(($res.download.bandwidth * 8) / 1000000, 1)
+                $upMbps = [Math]::Round(($res.upload.bandwidth * 8) / 1000000, 1)
+                $window.Dispatcher.Invoke({
+                        $ui.txtDownSpeed.Text = $downMbps
+                        $ui.txtUpSpeed.Text = $upMbps
+                        $ui.pbDown.Value = 100
+                        $ui.pbUp.Value = 100
+                        $ui.txtSpeedStatus.Text = "Finished: $($res.isp)"
+                    })
+            }
+            catch {
+                $window.Dispatcher.Invoke({ 
+                        $ui.txtSpeedStatus.Text = "Error: Speedtest failed" 
+                        $ui.btnRunSpeed.IsEnabled = $true
+                    })
+            }
+            finally {
+                $window.Dispatcher.Invoke({
+                        $ui.btnRunSpeed.IsEnabled = $true
+                        $ui.btnRunSpeed.Content = "RUN TEST"
+                    })
+            }
         }
-        else {
-            $window.WindowState = "Minimized"
-        }
+        $ps = [PowerShell]::Create().AddScript($speedBlock).AddArgument($window).AddArgument($ui).AddArgument($appDataFolder)
+        [void]$ps.BeginInvoke()
     })
 
 $window.Add_MouseLeftButtonDown({ $window.DragMove() })
@@ -1004,4 +1156,12 @@ Get-NetworkSummary
 $window.Add_Loaded({
         $splashScreen.Close()
     })
-$window.ShowDialog() | Out-Null
+    
+$window.Show()
+
+[System.Windows.Forms.Application]::Run()
+
+while ($notifyIcon.Visible) {
+    [System.Windows.Forms.Application]::DoEvents()
+    Start-Sleep -Milliseconds 100
+}
