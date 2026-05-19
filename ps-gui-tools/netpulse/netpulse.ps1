@@ -44,7 +44,7 @@ $sessionStats = [PSCustomObject]@{
 [xml]$xaml = @"
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="NetPulse" Height="750" Width="1150" 
+        Title="NetPulse" Height="800" Width="1200" 
         WindowStartupLocation="CenterScreen" Background="Transparent" AllowsTransparency="True" WindowStyle="None"
         FontFamily="Segoe UI Variable Text">
     
@@ -63,6 +63,7 @@ $sessionStats = [PSCustomObject]@{
                         <Button Name="navDash" Content="&#xE80F;" ToolTip="Command Center" FontFamily="Segoe MDL2 Assets" Height="70" Background="Transparent" BorderThickness="0" Foreground="White" FontSize="26"/>
                         <Button Name="navLogs" Content="&#xE81C;" ToolTip="Traffic Logs" FontFamily="Segoe MDL2 Assets" Height="70" Background="Transparent" BorderThickness="0" Foreground="#555" FontSize="26"/>
                         <Button Name="navTrace" Content="&#xE909;" ToolTip="Visual Traceroute" FontFamily="Segoe MDL2 Assets" Height="70" Background="Transparent" BorderThickness="0" Foreground="#555" FontSize="26"/>
+                        <Button Name="navTopo" Content="&#xE902;" ToolTip="Topology Map" FontFamily="Segoe MDL2 Assets" Height="70" Background="Transparent" BorderThickness="0" Foreground="#555" FontSize="26"/>
                         <Button Name="navSpeed" Content="&#xE945;" ToolTip="Speed Test" FontFamily="Segoe MDL2 Assets" Height="70" Background="Transparent" BorderThickness="0" Foreground="#555" FontSize="26"/>
                         <Button Name="navInfo" Content="&#xE946;" ToolTip="Advanced Diagnostics" FontFamily="Segoe MDL2 Assets" Height="70" Background="Transparent" BorderThickness="0" Foreground="#555" FontSize="26"/>
                         <Button Name="navSet" Content="&#xE713;" ToolTip="Engine Settings" FontFamily="Segoe MDL2 Assets" Height="70" Background="Transparent" BorderThickness="0" Foreground="#555" FontSize="26"/>
@@ -190,7 +191,7 @@ $sessionStats = [PSCustomObject]@{
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
-                        <Button Name="btnAction" Content="START CORE" Width="220" Height="55" Background="#0078D7" Foreground="White" FontWeight="Bold" FontSize="15">
+                        <Button Name="btnAction" Content="START" Width="220" Height="55" Background="#0078D7" Foreground="White" FontWeight="Bold" FontSize="15">
                             <Button.Resources><Style TargetType="Border"><Setter Property="CornerRadius" Value="27"/></Style></Button.Resources>
                         </Button>
                         <StackPanel Grid.Column="1" Margin="30,0,0,0" VerticalAlignment="Center">
@@ -210,7 +211,7 @@ $sessionStats = [PSCustomObject]@{
 
                     <StackPanel Grid.Row="0" Margin="0,0,0,20">
                         <TextBlock Text="Event Timeline" FontSize="34" Foreground="White" FontWeight="Bold"/>
-                        <TextBlock Text="Detailed telemetry and packet lifecycle analysis." Foreground="#555"/>
+                        <TextBlock Text="Detailed telemetry and packet lifecycle analysis" Foreground="#555"/>
                     </StackPanel>
 
                     <Border Grid.Row="1" Background="#0C0C0F" CornerRadius="15" BorderBrush="#1F1F24" BorderThickness="1">
@@ -315,7 +316,52 @@ $sessionStats = [PSCustomObject]@{
                     </Border>
                 </Grid>
 
-                <!-- PAGE 4: SPEED TEST -->
+                <!-- PAGE 4: TOPOLOGY -->
+                <Grid Name="pageTopo" Visibility="Collapsed">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <Grid Grid.Row="0" Margin="0,0,0,20">
+                        <StackPanel>
+                            <TextBlock Text="Network Topology" FontSize="34" Foreground="White" FontWeight="Bold"/>
+                            <TextBlock Name="txtTopoStats" Text="Discover and map local infrastructure" Foreground="#555"/>
+                            <Button Name="btnScanTopo" Content="DISCOVER DEVICES" Width="180" Height="40" Background="#0078D7" Foreground="White" FontWeight="Bold" HorizontalAlignment="Left" Margin="0,15,0,0">
+                                <Button.Resources><Style TargetType="Border"><Setter Property="CornerRadius" Value="8"/></Style></Button.Resources>
+                            </Button>
+                        </StackPanel>
+                    </Grid>
+
+                    <Border Grid.Row="1" Background="#08080A" CornerRadius="20" BorderBrush="#1F1F24" BorderThickness="1">
+                        <Grid> <Canvas Name="canvasTopo" Background="Transparent" ClipToBounds="True"/>
+
+                            <Border VerticalAlignment="Top" HorizontalAlignment="Right" Margin="20" 
+                                    Background="#121218" Padding="15" CornerRadius="10" 
+                                    BorderBrush="#1F1F24" BorderThickness="1" Opacity="0.9">
+                                <StackPanel>
+                                    <TextBlock Text="NODE LEGEND" Foreground="#0078D7" FontSize="10" FontWeight="Bold" Margin="0,0,0,10"/>
+                                    <StackPanel Orientation="Horizontal" Margin="0,3">
+                                        <Ellipse Width="10" Height="10" Fill="#0078D7" Margin="0,0,10,0"/>
+                                        <TextBlock Text="Gateway (Router)" Foreground="#AAA" FontSize="11"/>
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" Margin="0,3">
+                                        <Ellipse Width="10" Height="10" Fill="#44E811" Margin="0,0,10,0"/>
+                                        <TextBlock Text="Active Node" Foreground="#AAA" FontSize="11"/>
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" Margin="0,3">
+                                        <Ellipse Width="10" Height="10" Fill="#E81123" Margin="0,0,10,0"/>
+                                        <TextBlock Text="Unreachable" Foreground="#AAA" FontSize="11"/>
+                                    </StackPanel>
+                                    <Separator Background="#1F1F24" Margin="0,10"/>
+                                    <TextBlock Text="Dashed line = High Latency" Foreground="#444" FontSize="9" FontStyle="Italic"/>
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+                    </Border>
+                </Grid>
+
+                <!-- PAGE 5: SPEEDTEST -->
                 <Grid Name="pageSpeed" Visibility="Collapsed">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
@@ -377,7 +423,7 @@ $sessionStats = [PSCustomObject]@{
                     </Grid>
                 </Grid>
 
-                <!-- PAGE 5: ADVANCED DIAGNOSTICS (EXPANDED) -->
+                <!-- PAGE 6: DIAGNOSTICS -->
                 <Grid Name="pageInfo" Visibility="Collapsed">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
@@ -387,7 +433,7 @@ $sessionStats = [PSCustomObject]@{
                     <!-- Header Area -->
                     <StackPanel Grid.Row="0" Margin="0,0,0,25">
                         <TextBlock Text="Diagnostics" FontSize="34" Foreground="White" FontWeight="Bold"/>
-                        <TextBlock Text="Hardware telemetry and real-time socket analysis." Foreground="#555" FontSize="14"/>
+                        <TextBlock Text="Hardware telemetry and real-time socket analysis" Foreground="#555" FontSize="14"/>
                     </StackPanel>
 
                     <Grid Grid.Row="1">
@@ -486,7 +532,7 @@ $sessionStats = [PSCustomObject]@{
                     </Grid>
                 </Grid>
 
-                <!-- PAGE 6: SETTINGS -->
+                <!-- PAGE 7: SETTINGS -->
                 <StackPanel Name="pageSet" Visibility="Collapsed">
                     <TextBlock Text="Settings" FontSize="34" Foreground="White" FontWeight="Bold" Margin="0,0,0,25"/>
                     
@@ -571,7 +617,8 @@ $ui = @{}
 "btnBrowseLog", "txtMAC", "txtNetStatus", "txtDHCPServer", "txtISPName", "txtISPCity", "lstActiveConns", 
 "btnFlushDNS", "btnResetStack", "polylineJitter", "limitLine", "polyFill", "canvasGrid", "canvasLabels",
 "navTrace", "pageTrace", "editTraceHost", "btnStartTrace", "lstTrace",
-"navSpeed", "pageSpeed", "txtDownSpeed", "txtUpSpeed", "pbDown", "pbUp", "btnRunSpeed", "txtSpeedStatus" | ForEach-Object { $ui[$_] = $window.FindName($_) }
+"navSpeed", "pageSpeed", "txtDownSpeed", "txtUpSpeed", "pbDown", "pbUp", "btnRunSpeed", "txtSpeedStatus",
+"navTopo", "pageTopo", "canvasTopo", "btnScanTopo", "txtTopoStats" | ForEach-Object { $ui[$_] = $window.FindName($_) }
 
 function Add-LogEntry {
     param(
@@ -762,14 +809,10 @@ function Get-ActiveConnections {
 }
 
 function Show-Page ($pageToShow, $navButton) {
-    $allPages = $ui.pageDash, $ui.pageLogs, $ui.pageInfo, $ui.pageSet, $ui.pageTrace, $ui.pageSpeed
-    foreach ($page in $allPages) { 
-        if ($null -ne $page) { $page.Visibility = "Collapsed" } 
-    }
-    $allNavs = $ui.navDash, $ui.navLogs, $ui.navInfo, $ui.navSet, $ui.navTrace, $ui.navSpeed
-    foreach ($nav in $allNavs) { 
-        if ($null -ne $nav) { $nav.Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#555") } 
-    }
+    $allPages = $ui.pageDash, $ui.pageLogs, $ui.pageInfo, $ui.pageSet, $ui.pageTrace, $ui.pageSpeed, $ui.pageTopo
+    foreach ($page in $allPages) { if ($null -ne $page) { $page.Visibility = "Collapsed" } }
+    $allNavs = $ui.navDash, $ui.navLogs, $ui.navInfo, $ui.navSet, $ui.navTrace, $ui.navSpeed, $ui.navTopo
+    foreach ($nav in $allNavs) { if ($null -ne $nav) { $nav.Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#555") } }
     $pageToShow.Visibility = "Visible"
     $navButton.Foreground = [System.Windows.Media.Brushes]::White
 }
@@ -832,6 +875,87 @@ $notifyIcon.Add_DoubleClick({
                 $window.Activate()
                 $notifyIcon.Visible = $false
             })
+    })
+
+$ui.navTopo.Add_Click({ Show-Page $ui.pageTopo $ui.navTopo })
+
+$ui.btnScanTopo.Add_Click({
+        $ui.canvasTopo.Children.Clear() 
+        $ui.btnScanTopo.Content = "DISCOVERING..."
+        $ui.btnScanTopo.IsEnabled = $false
+        $topoBlock = {
+            param($window, $ui)
+            $netCfg = Get-NetIPConfiguration | Where-Object { $_.IPv4DefaultGateway }
+            $gateway = $netCfg.IPv4DefaultGateway.NextHop
+            $myIP = ($netCfg.IPv4Address).IPAddress
+            $ipBase = ($myIP -split "\.")[0..2] -join "."
+            1..10 | ForEach-Object { Test-Connection -ComputerName "$ipBase.$_" -Count 1 -Delay 0 -ErrorAction SilentlyContinue } | Out-Null
+            $devices = arp -a | Select-String -Pattern "dynamic" | ForEach-Object {
+                $parts = $_.ToString().Split(" ", [System.StringSplitOptions]::RemoveEmptyEntries)
+                if ($parts.Count -ge 2 -and $parts[0] -ne $gateway -and $parts[0] -ne $myIP) {
+                    $p = New-Object System.Net.NetworkInformation.Ping
+                    try { $res = $p.Send($parts[0], 150) } catch { $res = $null }
+                    [PSCustomObject]@{ 
+                        IP      = $parts[0] 
+                        MAC     = $parts[1].ToUpper() 
+                        Latency = if ($res.Status -eq "Success") { $res.RoundtripTime }else { -1 } 
+                    }
+                }
+            }
+            $window.Dispatcher.Invoke({
+                    $cX = $ui.canvasTopo.ActualWidth / 2
+                    $cY = $ui.canvasTopo.ActualHeight / 2
+                    $router = New-Object System.Windows.Shapes.Ellipse
+                    $router.Width = 60; $router.Height = 60; $router.Fill = [System.Windows.Media.Brushes]::DodgerBlue
+                    $router.Stroke = [System.Windows.Media.Brushes]::White; $router.StrokeThickness = 2
+                    [System.Windows.Controls.Canvas]::SetLeft($router, $cX - 30); [System.Windows.Controls.Canvas]::SetTop($router, $cY - 30)
+                    [void]$ui.canvasTopo.Children.Add($router)
+                    $rLbl = New-Object System.Windows.Controls.TextBlock
+                    $rLbl.Text = "GATEWAY`n$gateway"; $rLbl.Foreground = [System.Windows.Media.Brushes]::White
+                    $rLbl.FontSize = 10; $rLbl.FontWeight = "Bold"; $rLbl.TextAlignment = "Center"; $rLbl.Width = 120
+                    [System.Windows.Controls.Canvas]::SetLeft($rLbl, $cX - 60); [System.Windows.Controls.Canvas]::SetTop($rLbl, $cY + 35)
+                    [void]$ui.canvasTopo.Children.Add($rLbl)
+                    $myPosX = $cX - 120; $myPosY = $cY - 80
+                    $lineMy = New-Object System.Windows.Shapes.Line
+                    $lineMy.X1 = $cX; $lineMy.Y1 = $cY; $lineMy.X2 = $myPosX; $lineMy.Y2 = $myPosY
+                    $lineMy.Stroke = [System.Windows.Media.Brushes]::Cyan; $lineMy.StrokeThickness = 2
+                    [void]$ui.canvasTopo.Children.Add($lineMy)
+                    $myNode = New-Object System.Windows.Shapes.Ellipse
+                    $myNode.Width = 30; $myNode.Height = 30; $myNode.Fill = [System.Windows.Media.Brushes]::Cyan
+                    [System.Windows.Controls.Canvas]::SetLeft($myNode, $myPosX - 15); [System.Windows.Controls.Canvas]::SetTop($myNode, $myPosY - 15)
+                    [void]$ui.canvasTopo.Children.Add($myNode)
+                    $myLbl = New-Object System.Windows.Controls.TextBlock
+                    $myLbl.Text = "THIS PC`n$myIP"; $myLbl.Foreground = [System.Windows.Media.Brushes]::mediumturquoise
+                    $myLbl.FontSize = 10; $myLbl.FontWeight = "Bold"; $myLbl.Width = 100; $myLbl.TextAlignment = "Center"
+                    [System.Windows.Controls.Canvas]::SetLeft($myLbl, $myPosX - 50); [System.Windows.Controls.Canvas]::SetTop($myLbl, $myPosY - 45)
+                    [void]$ui.canvasTopo.Children.Add($myLbl)
+                    $radius = 200; $count = 0
+                    foreach ($dev in $devices) {
+                        $angle = ($count++) * (360 / $devices.Count) * ([Math]::PI / 180)
+                        $targetX = $cX + $radius * [Math]::Cos($angle)
+                        $targetY = $cY + $radius * [Math]::Sin($angle)
+                        $line = New-Object System.Windows.Shapes.Line
+                        $line.X1 = $cX; $line.Y1 = $cY; $line.X2 = $targetX; $line.Y2 = $targetY
+                        $line.Stroke = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#25252A")
+                        [void]$ui.canvasTopo.Children.Add($line)
+                        $color = if ($dev.Latency -eq -1) { "#E81123" } elseif ($dev.Latency -gt 80) { "#FFB900" } else { "#44E811" }
+                        $node = New-Object System.Windows.Shapes.Ellipse
+                        $node.Width = 24; $node.Height = 24; $node.Fill = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#121218")
+                        $node.Stroke = [System.Windows.Media.BrushConverter]::new().ConvertFromString($color); $node.StrokeThickness = 2
+                        [System.Windows.Controls.Canvas]::SetLeft($node, $targetX - 12); [System.Windows.Controls.Canvas]::SetTop($node, $targetY - 12)
+                        [void]$ui.canvasTopo.Children.Add($node)
+                        $lbl = New-Object System.Windows.Controls.TextBlock
+                        $lbl.Text = "$($dev.IP)`n$($dev.MAC)"; $lbl.Foreground = [System.Windows.Media.Brushes]::Gray
+                        $lbl.FontSize = 9; $lbl.TextAlignment = "Center"; $lbl.Width = 140
+                        [System.Windows.Controls.Canvas]::SetLeft($lbl, $targetX - 70); [System.Windows.Controls.Canvas]::SetTop($lbl, $targetY + 18)
+                        [void]$ui.canvasTopo.Children.Add($lbl)
+                    }
+                    $ui.btnScanTopo.Content = "DISCOVER DEVICES"
+                    $ui.btnScanTopo.IsEnabled = $true
+                })
+        }
+        $ps = [PowerShell]::Create().AddScript($topoBlock).AddArgument($window).AddArgument($ui)
+        [void]$ps.BeginInvoke()
     })
 
 $ui.btnMin.Add_Click({
