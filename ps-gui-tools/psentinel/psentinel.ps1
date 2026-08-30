@@ -671,13 +671,23 @@ function Get-ActualPing {
         if ($reply.Status -eq "Success") {
             return $reply.RoundtripTime
         }
-        else {
-            return -1
+    }
+    catch { }
+    try {
+        $tcpClient = New-Object System.Net.Sockets.TcpClient
+        $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+        $asyncResult = $tcpClient.BeginConnect($Hostname, 5985, $null, $null)
+        $waitResult = $asyncResult.AsyncWaitHandle.WaitOne(1000, $false)
+        $stopwatch.Stop()
+        if ($waitResult -and $tcpClient.Connected) {
+            $tcpClient.EndConnect($asyncResult)
+            $tcpClient.Close()
+            return [math]::Max(1, [int]$stopwatch.ElapsedMilliseconds)
         }
+        $tcpClient.Close()
     }
-    catch {
-        return -1
-    }
+    catch { }
+    return -1
 }
 
 $nodes = @(
